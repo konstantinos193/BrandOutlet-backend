@@ -18,9 +18,30 @@ const getDashboardData = async () => {
       getPendingVerifications()
     ]);
 
+    // Debug: Log the original recentActivity
+    console.log('Original recentActivity:', JSON.stringify(recentActivity, null, 2));
+    
+    // Transform recentActivity to match frontend expectations
+    const transformedRecentActivity = {
+      products: recentActivity
+        .filter(activity => activity.type === 'product_added')
+        .map(activity => ({
+          id: activity.metadata.productId,
+          brand: { name: activity.description.split(' ')[0] }, // Extract brand from description
+          name: activity.description.split(' ').slice(1).join(' '), // Extract product name
+          seller: { username: 'admin' }, // Default seller
+          createdAt: activity.timestamp
+        })),
+      sales: [], // Mock sales data - replace with real data when available
+      users: [] // Mock users data - replace with real data when available
+    };
+    
+    // Debug: Log the transformed data
+    console.log('Transformed recentActivity:', JSON.stringify(transformedRecentActivity, null, 2));
+
     return {
       metrics,
-      recentActivity,
+      recentActivity: transformedRecentActivity,
       pendingVerifications
     };
   } catch (error) {
