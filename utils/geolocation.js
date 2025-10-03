@@ -82,11 +82,11 @@ function parseUserAgent(userAgent) {
     const ua = new UserAgent(userAgent);
     
     return {
-      browser: ua.browser?.name || 'Unknown',
-      browserVersion: ua.browser?.version || 'Unknown',
-      os: ua.os?.name || 'Unknown',
-      osVersion: ua.os?.version || 'Unknown',
-      device: ua.device?.type || 'Unknown',
+      browser: (ua.browser && ua.browser.name) || 'Unknown',
+      browserVersion: (ua.browser && ua.browser.version) || 'Unknown',
+      os: (ua.os && ua.os.name) || 'Unknown',
+      osVersion: (ua.os && ua.os.version) || 'Unknown',
+      device: (ua.device && ua.device.type) || 'Unknown',
       isMobile: ua.isMobile || false,
       isTablet: ua.isTablet || false,
       isDesktop: ua.isDesktop || false

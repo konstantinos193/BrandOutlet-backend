@@ -90,9 +90,11 @@ class AnalyticsService {
     const today = new Date();
     today.setHours(0, 0, 0, 0);
     
-    const activeUsersToday = await pageTrackingCollection.distinct('sessionId', {
-      timestamp: { $gte: today }
-    });
+    const activeUsersTodayResult = await pageTrackingCollection.aggregate([
+      { $match: { timestamp: { $gte: today } } },
+      { $group: { _id: '$sessionId' } }
+    ]).toArray();
+    const activeUsersToday = activeUsersTodayResult.map(item => item._id);
 
     return {
       ...mockUserStats,
@@ -132,7 +134,10 @@ class AnalyticsService {
     
     // Calculate conversion metrics from page tracking data
     const totalPageViews = await pageTrackingCollection.countDocuments();
-    const uniqueSessions = await pageTrackingCollection.distinct('sessionId');
+    const uniqueSessionsResult = await pageTrackingCollection.aggregate([
+      { $group: { _id: '$sessionId' } }
+    ]).toArray();
+    const uniqueSessions = uniqueSessionsResult.map(item => item._id);
     
     // Mock conversion data - replace with real data when available
     const mockConversionStats = {
@@ -168,8 +173,14 @@ class AnalyticsService {
     ] = await Promise.all([
       pageTrackingCollection.countDocuments({ timestamp: { $gte: lastHour } }),
       pageTrackingCollection.countDocuments({ timestamp: { $gte: last24Hours } }),
-      pageTrackingCollection.distinct('sessionId', { timestamp: { $gte: lastHour } }),
-      pageTrackingCollection.distinct('sessionId', { timestamp: { $gte: last24Hours } })
+      pageTrackingCollection.aggregate([
+        { $match: { timestamp: { $gte: lastHour } } },
+        { $group: { _id: '$sessionId' } }
+      ]).toArray(),
+      pageTrackingCollection.aggregate([
+        { $match: { timestamp: { $gte: last24Hours } } },
+        { $group: { _id: '$sessionId' } }
+      ]).toArray()
     ]);
 
     return {
