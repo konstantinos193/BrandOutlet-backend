@@ -19,7 +19,7 @@ const connectDB = async () => {
     client = new MongoClient(uri, {
       serverApi: {
         version: ServerApiVersion.v1,
-        strict: true,
+        strict: false, // Changed to false to allow distinct command
         deprecationErrors: true,
       }
     });

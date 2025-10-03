@@ -66,14 +66,27 @@ function getLocationFromIP(ip) {
  */
 function parseUserAgent(userAgent) {
   try {
+    if (!userAgent) {
+      return {
+        browser: 'Unknown',
+        browserVersion: 'Unknown',
+        os: 'Unknown',
+        osVersion: 'Unknown',
+        device: 'Unknown',
+        isMobile: false,
+        isTablet: false,
+        isDesktop: false
+      };
+    }
+
     const ua = new UserAgent(userAgent);
     
     return {
-      browser: ua.browser.name || 'Unknown',
-      browserVersion: ua.browser.version || 'Unknown',
-      os: ua.os.name || 'Unknown',
-      osVersion: ua.os.version || 'Unknown',
-      device: ua.device.type || 'Unknown',
+      browser: ua.browser?.name || 'Unknown',
+      browserVersion: ua.browser?.version || 'Unknown',
+      os: ua.os?.name || 'Unknown',
+      osVersion: ua.os?.version || 'Unknown',
+      device: ua.device?.type || 'Unknown',
       isMobile: ua.isMobile || false,
       isTablet: ua.isTablet || false,
       isDesktop: ua.isDesktop || false

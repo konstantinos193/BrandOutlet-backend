@@ -15,6 +15,9 @@ const { connectDB } = require('./config/database');
 const app = express();
 const PORT = process.env.PORT || 3001;
 
+// Trust proxy for rate limiting (required for production deployments)
+app.set('trust proxy', 1);
+
 // Security middleware
 app.use(helmet());
 

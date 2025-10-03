@@ -2,11 +2,11 @@ const axios = require('axios');
 
 class AIInsightsService {
   constructor() {
-    this.huggingFaceApiKey = process.env.HUGGING_FACE_API_KEY;
+    this.huggingFaceApiKey = process.env.HUGGINGFACE_API_KEY;
     this.baseUrl = 'https://api-inference.huggingface.co/models';
     
     if (!this.huggingFaceApiKey) {
-      console.warn('⚠️ HUGGING_FACE_API_KEY not found. AI insights will use mock data.');
+      console.warn('⚠️ HUGGINGFACE_API_KEY not found. AI insights will use mock data.');
     }
   }
 
