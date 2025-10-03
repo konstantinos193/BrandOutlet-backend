@@ -4,6 +4,20 @@ const { v4: uuidv4 } = require('uuid');
 const { getTrackingData } = require('../utils/geolocation');
 const router = express.Router();
 
+// Health check endpoint for page tracking
+router.get('/health', (req, res) => {
+  res.json({
+    success: true,
+    message: 'Page tracking service is healthy',
+    timestamp: new Date().toISOString(),
+    stats: {
+      totalViews: pageViews.length,
+      uniqueVisitors: pageAnalytics.uniqueVisitors.size,
+      lastUpdated: pageAnalytics.lastUpdated
+    }
+  });
+});
+
 // In-memory storage for page tracking (replace with database in production)
 let pageViews = [];
 let pageAnalytics = {
@@ -34,16 +48,49 @@ const pageViewSchema = Joi.object({
 // POST /api/page-tracking/view - Track page view
 router.post('/view', async (req, res) => {
   try {
+    console.log('📊 Page view tracking request received');
+    
     const { error, value } = pageViewSchema.validate(req.body);
     if (error) {
+      console.error('Validation error:', error.details[0].message);
       return res.status(400).json({
         error: 'Validation error',
         details: error.details[0].message
       });
     }
 
-    // Get comprehensive tracking data including geolocation
-    const trackingData = getTrackingData(req);
+    // Get comprehensive tracking data including geolocation with error handling
+    let trackingData;
+    try {
+      trackingData = getTrackingData(req);
+    } catch (trackingError) {
+      console.error('Error getting tracking data:', trackingError);
+      // Fallback to basic tracking data
+      trackingData = {
+        ip: req.ip || '127.0.0.1',
+        location: {
+          country: 'Unknown',
+          region: 'Unknown',
+          city: 'Unknown',
+          timezone: 'Unknown',
+          latitude: null,
+          longitude: null,
+          isLocal: true
+        },
+        device: {
+          browser: 'Unknown',
+          browserVersion: 'Unknown',
+          os: 'Unknown',
+          osVersion: 'Unknown',
+          device: 'Unknown',
+          isMobile: false,
+          isTablet: false,
+          isDesktop: false
+        },
+        referrer: req.get('Referer') || null,
+        acceptLanguage: req.get('Accept-Language') || null
+      };
+    }
     
     // Add unique ID and additional data
     const pageViewData = {
@@ -62,7 +109,14 @@ router.post('/view', async (req, res) => {
     pageViews.push(pageViewData);
 
     // Update analytics data
-    updatePageAnalytics(pageViewData);
+    try {
+      updatePageAnalytics(pageViewData);
+    } catch (analyticsError) {
+      console.error('Error updating analytics:', analyticsError);
+      // Continue without failing the request
+    }
+
+    console.log('✅ Page view tracked successfully:', pageViewData.id);
 
     res.status(201).json({
       success: true,

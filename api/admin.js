@@ -290,4 +290,331 @@ router.post('/insights/regenerate', async (req, res) => {
   }
 });
 
+// GET /api/admin/quick-insights - Get at-a-glance insights for quick decision-making
+router.get('/quick-insights', async (req, res) => {
+  try {
+    console.log('⚡ Quick insights requested');
+    
+    const [
+      metrics,
+      alerts,
+      healthScore,
+      urgentActions
+    ] = await Promise.all([
+      analyticsService.getDashboardMetrics(),
+      getSystemAlerts(),
+      calculateHealthScore(),
+      getUrgentActions()
+    ]);
+    
+    const quickInsights = {
+      overview: {
+        healthScore,
+        status: healthScore > 80 ? 'excellent' : healthScore > 60 ? 'good' : 'needs_attention',
+        lastUpdated: new Date().toISOString()
+      },
+      alerts: alerts,
+      urgentActions: urgentActions,
+      keyMetrics: {
+        revenue: {
+          current: metrics.totalRevenue,
+          growth: metrics.revenueGrowth,
+          trend: metrics.revenueGrowth > 0 ? 'up' : 'down'
+        },
+        users: {
+          active: metrics.activeUsersToday,
+          growth: metrics.userGrowthRate,
+          trend: metrics.userGrowthRate > 0 ? 'up' : 'down'
+        },
+        products: {
+          total: metrics.totalProducts,
+          verified: metrics.verifiedProducts,
+          pending: metrics.pendingVerifications
+        },
+        performance: {
+          conversion: metrics.conversionRate,
+          bounce: metrics.bounceRate,
+          trend: metrics.conversionRate > 3 ? 'good' : 'needs_improvement'
+        }
+      }
+    };
+    
+    res.json({
+      success: true,
+      data: quickInsights,
+      timestamp: new Date().toISOString()
+    });
+  } catch (error) {
+    console.error('Error fetching quick insights:', error);
+    res.status(500).json({
+      success: false,
+      error: 'Failed to fetch quick insights',
+      message: error.message
+    });
+  }
+});
+
+// GET /api/admin/alerts - Get system alerts and warnings
+router.get('/alerts', async (req, res) => {
+  try {
+    console.log('🚨 System alerts requested');
+    
+    const alerts = await getSystemAlerts();
+    
+    res.json({
+      success: true,
+      data: alerts,
+      timestamp: new Date().toISOString()
+    });
+  } catch (error) {
+    console.error('Error fetching alerts:', error);
+    res.status(500).json({
+      success: false,
+      error: 'Failed to fetch alerts',
+      message: error.message
+    });
+  }
+});
+
+// GET /api/admin/health-score - Get overall system health score
+router.get('/health-score', async (req, res) => {
+  try {
+    console.log('💚 Health score requested');
+    
+    const healthScore = await calculateHealthScore();
+    const metrics = await analyticsService.getDashboardMetrics();
+    
+    res.json({
+      success: true,
+      data: {
+        score: healthScore,
+        status: healthScore > 80 ? 'excellent' : healthScore > 60 ? 'good' : 'needs_attention',
+        breakdown: {
+          revenue: calculateRevenueHealth(metrics),
+          users: calculateUserHealth(metrics),
+          products: calculateProductHealth(metrics),
+          performance: calculatePerformanceHealth(metrics)
+        },
+        recommendations: generateHealthRecommendations(healthScore, metrics)
+      },
+      timestamp: new Date().toISOString()
+    });
+  } catch (error) {
+    console.error('Error calculating health score:', error);
+    res.status(500).json({
+      success: false,
+      error: 'Failed to calculate health score',
+      message: error.message
+    });
+  }
+});
+
+// Helper function to get system alerts
+const getSystemAlerts = async () => {
+  const alerts = [];
+  const metrics = await analyticsService.getDashboardMetrics();
+  
+  // Revenue alerts
+  if (metrics.revenueGrowth < 0) {
+    alerts.push({
+      type: 'warning',
+      category: 'revenue',
+      title: 'Revenue Decline',
+      message: `Revenue decreased by ${Math.abs(metrics.revenueGrowth)}% this period`,
+      priority: 'high',
+      action: 'Review pricing strategy and promotional campaigns'
+    });
+  }
+  
+  // User engagement alerts
+  if (metrics.bounceRate > 60) {
+    alerts.push({
+      type: 'warning',
+      category: 'engagement',
+      title: 'High Bounce Rate',
+      message: `Bounce rate is ${metrics.bounceRate}% - above recommended threshold`,
+      priority: 'medium',
+      action: 'Improve page load speed and content relevance'
+    });
+  }
+  
+  // Product verification alerts
+  if (metrics.pendingVerifications > 10) {
+    alerts.push({
+      type: 'info',
+      category: 'products',
+      title: 'Pending Verifications',
+      message: `${metrics.pendingVerifications} products awaiting verification`,
+      priority: 'medium',
+      action: 'Review and verify pending products'
+    });
+  }
+  
+  // Low stock alerts
+  if (metrics.lowStockProducts > 0) {
+    alerts.push({
+      type: 'warning',
+      category: 'inventory',
+      title: 'Low Stock Alert',
+      message: `${metrics.lowStockProducts} products are low in stock`,
+      priority: 'high',
+      action: 'Restock low inventory items'
+    });
+  }
+  
+  return alerts;
+};
+
+// Helper function to calculate overall health score
+const calculateHealthScore = async () => {
+  const metrics = await analyticsService.getDashboardMetrics();
+  
+  let score = 0;
+  let factors = 0;
+  
+  // Revenue health (25 points)
+  if (metrics.revenueGrowth > 10) score += 25;
+  else if (metrics.revenueGrowth > 0) score += 20;
+  else if (metrics.revenueGrowth > -5) score += 10;
+  else score += 0;
+  factors += 25;
+  
+  // User engagement (25 points)
+  if (metrics.bounceRate < 30) score += 25;
+  else if (metrics.bounceRate < 50) score += 20;
+  else if (metrics.bounceRate < 70) score += 10;
+  else score += 0;
+  factors += 25;
+  
+  // Conversion rate (25 points)
+  if (metrics.conversionRate > 5) score += 25;
+  else if (metrics.conversionRate > 3) score += 20;
+  else if (metrics.conversionRate > 1) score += 10;
+  else score += 0;
+  factors += 25;
+  
+  // Product verification (25 points)
+  const verificationRate = metrics.totalProducts > 0 ? (metrics.verifiedProducts / metrics.totalProducts) * 100 : 0;
+  if (verificationRate > 90) score += 25;
+  else if (verificationRate > 70) score += 20;
+  else if (verificationRate > 50) score += 10;
+  else score += 0;
+  factors += 25;
+  
+  return Math.round((score / factors) * 100);
+};
+
+// Helper function to get urgent actions
+const getUrgentActions = async () => {
+  const actions = [];
+  const metrics = await analyticsService.getDashboardMetrics();
+  
+  if (metrics.pendingVerifications > 5) {
+    actions.push({
+      id: 'verify_products',
+      title: 'Verify Pending Products',
+      description: `${metrics.pendingVerifications} products need verification`,
+      priority: 'high',
+      estimatedTime: '15 minutes',
+      endpoint: '/api/admin/verifications'
+    });
+  }
+  
+  if (metrics.lowStockProducts > 0) {
+    actions.push({
+      id: 'restock_items',
+      title: 'Restock Low Inventory',
+      description: `${metrics.lowStockProducts} items are low in stock`,
+      priority: 'high',
+      estimatedTime: '30 minutes',
+      endpoint: '/api/admin/products?filter=low-stock'
+    });
+  }
+  
+  if (metrics.bounceRate > 60) {
+    actions.push({
+      id: 'optimize_pages',
+      title: 'Optimize Page Performance',
+      description: 'High bounce rate detected - review page speed',
+      priority: 'medium',
+      estimatedTime: '1 hour',
+      endpoint: '/api/admin/performance'
+    });
+  }
+  
+  return actions;
+};
+
+// Helper functions for health score breakdown
+const calculateRevenueHealth = (metrics) => {
+  if (metrics.revenueGrowth > 10) return { score: 100, status: 'excellent' };
+  if (metrics.revenueGrowth > 0) return { score: 80, status: 'good' };
+  if (metrics.revenueGrowth > -5) return { score: 60, status: 'fair' };
+  return { score: 40, status: 'poor' };
+};
+
+const calculateUserHealth = (metrics) => {
+  if (metrics.bounceRate < 30) return { score: 100, status: 'excellent' };
+  if (metrics.bounceRate < 50) return { score: 80, status: 'good' };
+  if (metrics.bounceRate < 70) return { score: 60, status: 'fair' };
+  return { score: 40, status: 'poor' };
+};
+
+const calculateProductHealth = (metrics) => {
+  const verificationRate = metrics.totalProducts > 0 ? (metrics.verifiedProducts / metrics.totalProducts) * 100 : 0;
+  if (verificationRate > 90) return { score: 100, status: 'excellent' };
+  if (verificationRate > 70) return { score: 80, status: 'good' };
+  if (verificationRate > 50) return { score: 60, status: 'fair' };
+  return { score: 40, status: 'poor' };
+};
+
+const calculatePerformanceHealth = (metrics) => {
+  if (metrics.conversionRate > 5) return { score: 100, status: 'excellent' };
+  if (metrics.conversionRate > 3) return { score: 80, status: 'good' };
+  if (metrics.conversionRate > 1) return { score: 60, status: 'fair' };
+  return { score: 40, status: 'poor' };
+};
+
+const generateHealthRecommendations = (healthScore, metrics) => {
+  const recommendations = [];
+  
+  if (healthScore < 60) {
+    recommendations.push({
+      priority: 'high',
+      category: 'overall',
+      title: 'System Health Needs Attention',
+      description: 'Multiple areas need improvement. Focus on high-impact changes first.'
+    });
+  }
+  
+  if (metrics.revenueGrowth < 0) {
+    recommendations.push({
+      priority: 'high',
+      category: 'revenue',
+      title: 'Boost Revenue',
+      description: 'Consider promotional campaigns, price optimization, or new product launches.'
+    });
+  }
+  
+  if (metrics.bounceRate > 60) {
+    recommendations.push({
+      priority: 'medium',
+      category: 'engagement',
+      title: 'Improve User Engagement',
+      description: 'Optimize page load speed, improve content quality, and enhance user experience.'
+    });
+  }
+  
+  if (metrics.conversionRate < 2) {
+    recommendations.push({
+      priority: 'high',
+      category: 'conversion',
+      title: 'Increase Conversion Rate',
+      description: 'A/B test checkout process, improve product pages, and optimize call-to-actions.'
+    });
+  }
+  
+  return recommendations;
+};
+
 module.exports = router;
