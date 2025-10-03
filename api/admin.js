@@ -37,17 +37,33 @@ const mockDashboardData = {
     sales: [
       {
         id: 'sale_001',
-        product: 'Air Jordan 1 Retro High OG',
+        product: {
+          brand: 'Nike',
+          name: 'Air Jordan 1 Retro High OG'
+        },
         buyer: 'john_doe',
-        amount: 180.00,
+        price: 180.00,
         createdAt: new Date(Date.now() - 1000 * 60 * 15).toISOString()
       },
       {
         id: 'sale_002',
-        product: 'Supreme Box Logo Hoodie',
+        product: {
+          brand: 'Supreme',
+          name: 'Box Logo Hoodie'
+        },
         buyer: 'jane_smith',
-        amount: 450.00,
+        price: 450.00,
         createdAt: new Date(Date.now() - 1000 * 60 * 45).toISOString()
+      },
+      {
+        id: 'sale_003',
+        product: {
+          brand: 'Louis Vuitton',
+          name: 'Neverfull MM'
+        },
+        buyer: 'luxury_lover',
+        price: 1200.00,
+        createdAt: new Date(Date.now() - 1000 * 60 * 30).toISOString()
       }
     ],
     users: [
@@ -65,6 +81,7 @@ const mockDashboardData = {
       productId: 'prod_004',
       productName: 'Gucci Ace Sneakers',
       brand: 'Gucci',
+      price: 650.00,
       seller: { username: 'luxury_seller' },
       images: ['/api/placeholder/200/200', '/api/placeholder/200/200'],
       submittedAt: new Date(Date.now() - 1000 * 60 * 60 * 6).toISOString()
@@ -74,6 +91,7 @@ const mockDashboardData = {
       productId: 'prod_005',
       productName: 'Off-White Air Max 90',
       brand: 'Nike',
+      price: 320.00,
       seller: { username: 'sneaker_expert' },
       images: ['/api/placeholder/200/200'],
       submittedAt: new Date(Date.now() - 1000 * 60 * 60 * 8).toISOString()
@@ -83,6 +101,7 @@ const mockDashboardData = {
       productId: 'prod_006',
       productName: 'Chanel Classic Flap Bag',
       brand: 'Chanel',
+      price: 2800.00,
       seller: { username: 'luxury_collector' },
       images: ['/api/placeholder/200/200', '/api/placeholder/200/200', '/api/placeholder/200/200'],
       submittedAt: new Date(Date.now() - 1000 * 60 * 60 * 12).toISOString()
