@@ -22,10 +22,14 @@ app.use(helmet());
 const allowedOrigins = [
   process.env.FRONTEND_URL || 'http://localhost:3000',
   'https://jordioresell.vercel.app', // Add your Vercel domain
-  'https://*.vercel.app', // Allow all Vercel preview deployments
   'http://localhost:3000', // Local development
   'http://localhost:3001' // Local backend
 ];
+
+// Function to check if origin matches Vercel pattern
+const isVercelOrigin = (origin) => {
+  return origin && origin.includes('.vercel.app');
+};
 
 // Debug CORS
 console.log('🔧 CORS Configuration:');
@@ -45,15 +49,10 @@ app.use(cors({
     
     // Check if origin is in allowed list
     const isAllowed = allowedOrigins.some(allowedOrigin => {
-      if (allowedOrigin.includes('*')) {
-        const isMatch = origin.includes(allowedOrigin.replace('*', ''));
-        console.log(`🔍 Checking wildcard ${allowedOrigin} against ${origin}: ${isMatch}`);
-        return isMatch;
-      }
       const isMatch = origin === allowedOrigin;
       console.log(`🔍 Checking exact ${allowedOrigin} against ${origin}: ${isMatch}`);
       return isMatch;
-    });
+    }) || isVercelOrigin(origin); // Also check for Vercel origins
     
     if (isAllowed) {
       console.log('✅ Origin allowed:', origin);
