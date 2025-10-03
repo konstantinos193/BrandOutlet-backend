@@ -25,26 +25,42 @@ app.use(cors({
 
 // Rate limiting
 const limiter = rateLimit({
-  windowMs: 15 * 60 * 1000, // 15 minutes
-  max: 100, // limit each IP to 100 requests per windowMs
+  windowMs: parseInt(process.env.RATE_LIMIT_WINDOW_MS) || 15 * 60 * 1000, // 15 minutes
+  max: parseInt(process.env.RATE_LIMIT_MAX) || 100, // limit each IP to 100 requests per windowMs
   message: 'Too many requests from this IP, please try again later.'
 });
 app.use('/api/', limiter);
 
 // Logging
-app.use(morgan('combined'));
+if (process.env.ENABLE_REQUEST_LOGGING !== 'false') {
+  app.use(morgan(process.env.LOG_LEVEL === 'debug' ? 'dev' : 'combined'));
+}
 
 // Body parsing middleware
 app.use(express.json({ limit: '10mb' }));
 app.use(express.urlencoded({ extended: true }));
 
 // Health check endpoint
-app.get('/health', (req, res) => {
-  res.status(200).json({
+const healthCheckPath = process.env.HEALTH_CHECK_PATH || '/health';
+app.get(healthCheckPath, (req, res) => {
+  const healthData = {
     status: 'OK',
     timestamp: new Date().toISOString(),
-    uptime: process.uptime()
-  });
+    uptime: process.uptime(),
+    environment: process.env.NODE_ENV || 'development'
+  };
+
+  // Add detailed health checks if enabled
+  if (process.env.DETAILED_HEALTH_CHECKS === 'true') {
+    healthData.details = {
+      memory: process.memoryUsage(),
+      version: process.version,
+      platform: process.platform,
+      arch: process.arch
+    };
+  }
+
+  res.status(200).json(healthData);
 });
 
 // API routes
