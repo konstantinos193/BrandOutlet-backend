@@ -8,6 +8,7 @@ require('dotenv').config();
 const userPreferencesRoutes = require('./api/userPreferences');
 const analyticsRoutes = require('./api/analytics');
 const pageTrackingRoutes = require('./api/pageTracking');
+const adminRoutes = require('./api/admin');
 const { connectDB } = require('./config/database');
 
 const app = express();
@@ -127,6 +128,7 @@ app.get(healthCheckPath, (req, res) => {
 app.use('/api/user-preferences', userPreferencesRoutes);
 app.use('/api/analytics', analyticsRoutes);
 app.use('/api/page-tracking', pageTrackingRoutes);
+app.use('/api/admin', adminRoutes);
 
 // Error handling middleware
 app.use((err, req, res, next) => {
@@ -157,6 +159,7 @@ const startServer = async () => {
       console.log(`📊 Analytics API: http://localhost:${PORT}/api/analytics`);
       console.log(`👤 User Preferences API: http://localhost:${PORT}/api/user-preferences`);
       console.log(`📈 Page Tracking API: http://localhost:${PORT}/api/page-tracking`);
+      console.log(`🔧 Admin API: http://localhost:${PORT}/api/admin`);
       console.log(`🏥 Health Check: http://localhost:${PORT}/health`);
     });
   } catch (error) {
