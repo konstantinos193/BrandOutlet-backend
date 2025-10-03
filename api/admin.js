@@ -1,127 +1,80 @@
 const express = require('express');
 const router = express.Router();
+const Product = require('../models/Product');
+const { getDB } = require('../config/database');
 
-// Mock data for admin dashboard
-const mockDashboardData = {
-  stats: {
-    totalProducts: 1247,
-    totalUsers: 3421,
-    totalSales: 892,
-    totalRevenue: 156789.50,
-    pendingVerifications: 23
-  },
-  recentActivity: {
-    products: [
-      {
-        id: 'prod_001',
-        brand: 'Nike',
-        name: 'Air Jordan 1 Retro High OG',
-        seller: { username: 'sneakerhead_pro' },
-        createdAt: new Date(Date.now() - 1000 * 60 * 30).toISOString()
+// Helper function to get real dashboard data
+const getDashboardData = async () => {
+  try {
+    const db = getDB();
+    
+    // Get product stats
+    const productStats = await Product.getDashboardStats();
+    
+    // Get recent products
+    const recentProducts = await Product.getRecentProducts(5);
+    
+    // Get pending verifications (products that need verification)
+    const pendingVerifications = await Product.findAll({
+      'authenticity.isVerified': false,
+      isActive: true
+    });
+
+    // Mock user and sales data (replace with real data when you have user/sales collections)
+    const mockUserStats = {
+      totalUsers: 3421,
+      totalSales: 892,
+      totalRevenue: 156789.50
+    };
+
+    return {
+      stats: {
+        totalProducts: productStats.totalProducts,
+        totalUsers: mockUserStats.totalUsers,
+        totalSales: mockUserStats.totalSales,
+        totalRevenue: mockUserStats.totalRevenue,
+        pendingVerifications: pendingVerifications.length
       },
-      {
-        id: 'prod_002',
-        brand: 'Supreme',
-        name: 'Box Logo Hoodie',
-        seller: { username: 'streetwear_king' },
-        createdAt: new Date(Date.now() - 1000 * 60 * 60 * 2).toISOString()
+      recentActivity: {
+        products: recentProducts.map(product => ({
+          id: product.id,
+          brand: product.brand.name,
+          name: product.name,
+          seller: { username: 'admin' }, // Replace with real seller data when available
+          createdAt: product.createdAt.toISOString()
+        })),
+        sales: [], // TODO: Add real sales data when you have sales collection
+        users: []  // TODO: Add real user data when you have users collection
       },
-      {
-        id: 'prod_003',
-        brand: 'Louis Vuitton',
-        name: 'Neverfull MM',
-        seller: { username: 'luxury_finds' },
-        createdAt: new Date(Date.now() - 1000 * 60 * 60 * 4).toISOString()
-      }
-    ],
-    sales: [
-      {
-        id: 'sale_001',
-        product: {
-          brand: 'Nike',
-          name: 'Air Jordan 1 Retro High OG'
-        },
-        buyer: 'john_doe',
-        price: 180.00,
-        createdAt: new Date(Date.now() - 1000 * 60 * 15).toISOString()
-      },
-      {
-        id: 'sale_002',
-        product: {
-          brand: 'Supreme',
-          name: 'Box Logo Hoodie'
-        },
-        buyer: 'jane_smith',
-        price: 450.00,
-        createdAt: new Date(Date.now() - 1000 * 60 * 45).toISOString()
-      },
-      {
-        id: 'sale_003',
-        product: {
-          brand: 'Louis Vuitton',
-          name: 'Neverfull MM'
-        },
-        buyer: 'luxury_lover',
-        price: 1200.00,
-        createdAt: new Date(Date.now() - 1000 * 60 * 30).toISOString()
-      }
-    ],
-    users: [
-      {
-        id: 'user_001',
-        username: 'new_user_123',
-        email: 'newuser@example.com',
-        createdAt: new Date(Date.now() - 1000 * 60 * 20).toISOString()
-      }
-    ]
-  },
-  pendingVerifications: [
-    {
-      id: 'verify_001',
-      productId: 'prod_004',
-      productName: 'Gucci Ace Sneakers',
-      brand: 'Gucci',
-      price: 650.00,
-      seller: { username: 'luxury_seller' },
-      images: ['/api/placeholder/200/200', '/api/placeholder/200/200'],
-      submittedAt: new Date(Date.now() - 1000 * 60 * 60 * 6).toISOString()
-    },
-    {
-      id: 'verify_002',
-      productId: 'prod_005',
-      productName: 'Off-White Air Max 90',
-      brand: 'Nike',
-      price: 320.00,
-      seller: { username: 'sneaker_expert' },
-      images: ['/api/placeholder/200/200'],
-      submittedAt: new Date(Date.now() - 1000 * 60 * 60 * 8).toISOString()
-    },
-    {
-      id: 'verify_003',
-      productId: 'prod_006',
-      productName: 'Chanel Classic Flap Bag',
-      brand: 'Chanel',
-      price: 2800.00,
-      seller: { username: 'luxury_collector' },
-      images: ['/api/placeholder/200/200', '/api/placeholder/200/200', '/api/placeholder/200/200'],
-      submittedAt: new Date(Date.now() - 1000 * 60 * 60 * 12).toISOString()
-    }
-  ]
+      pendingVerifications: pendingVerifications.map(product => ({
+        id: product.id,
+        productId: product.id,
+        productName: product.name,
+        brand: product.brand.name,
+        price: product.price,
+        seller: { username: 'admin' }, // Replace with real seller data
+        images: product.images,
+        submittedAt: product.createdAt.toISOString()
+      }))
+    };
+  } catch (error) {
+    console.error('Error getting dashboard data:', error);
+    throw error;
+  }
 };
 
 // GET /api/admin/dashboard
-router.get('/dashboard', (req, res) => {
+router.get('/dashboard', async (req, res) => {
   try {
     console.log('📊 Admin dashboard data requested');
     
-    // Simulate some processing time
-    setTimeout(() => {
-      res.json({
-        success: true,
-        data: mockDashboardData,
-        timestamp: new Date().toISOString()
-      });
-    }, 100);
+    const dashboardData = await getDashboardData();
+    
+    res.json({
+      success: true,
+      data: dashboardData,
+      timestamp: new Date().toISOString()
+    });
   } catch (error) {
     console.error('Error fetching admin dashboard:', error);
     res.status(500).json({

@@ -9,6 +9,7 @@ const userPreferencesRoutes = require('./api/userPreferences');
 const analyticsRoutes = require('./api/analytics');
 const pageTrackingRoutes = require('./api/pageTracking');
 const adminRoutes = require('./api/admin');
+const productsRoutes = require('./api/products');
 const { connectDB } = require('./config/database');
 
 const app = express();
@@ -129,6 +130,7 @@ app.use('/api/user-preferences', userPreferencesRoutes);
 app.use('/api/analytics', analyticsRoutes);
 app.use('/api/page-tracking', pageTrackingRoutes);
 app.use('/api/admin', adminRoutes);
+app.use('/api/products', productsRoutes);
 
 // Error handling middleware
 app.use((err, req, res, next) => {
