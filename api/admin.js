@@ -2,65 +2,49 @@ const express = require('express');
 const router = express.Router();
 const Product = require('../models/Product');
 const { getDB } = require('../config/database');
+const analyticsService = require('../services/analyticsService');
 
-// Helper function to get real dashboard data
+// Helper function to get comprehensive dashboard data
 const getDashboardData = async () => {
   try {
-    const db = getDB();
-    
-    // Get product stats
-    const productStats = await Product.getDashboardStats();
-    
-    // Get recent products
-    const recentProducts = await Product.getRecentProducts(5);
-    
-    // Get pending verifications (products that need verification)
-    const pendingVerifications = await Product.findAll({
-      'authenticity.isVerified': false,
-      isActive: true
-    });
-
-    // Mock user and sales data (replace with real data when you have user/sales collections)
-    const mockUserStats = {
-      totalUsers: 3421,
-      totalSales: 892,
-      totalRevenue: 156789.50
-    };
+    const [
+      metrics,
+      recentActivity,
+      pendingVerifications
+    ] = await Promise.all([
+      analyticsService.getDashboardMetrics(),
+      analyticsService.getRecentActivity(10),
+      getPendingVerifications()
+    ]);
 
     return {
-      stats: {
-        totalProducts: productStats.totalProducts,
-        totalUsers: mockUserStats.totalUsers,
-        totalSales: mockUserStats.totalSales,
-        totalRevenue: mockUserStats.totalRevenue,
-        pendingVerifications: pendingVerifications.length
-      },
-      recentActivity: {
-        products: recentProducts.map(product => ({
-          id: product.id,
-          brand: product.brand.name,
-          name: product.name,
-          seller: { username: 'admin' }, // Replace with real seller data when available
-          createdAt: product.createdAt.toISOString()
-        })),
-        sales: [], // TODO: Add real sales data when you have sales collection
-        users: []  // TODO: Add real user data when you have users collection
-      },
-      pendingVerifications: pendingVerifications.map(product => ({
-        id: product.id,
-        productId: product.id,
-        productName: product.name,
-        brand: product.brand.name,
-        price: product.price,
-        seller: { username: 'admin' }, // Replace with real seller data
-        images: product.images,
-        submittedAt: product.createdAt.toISOString()
-      }))
+      metrics,
+      recentActivity,
+      pendingVerifications
     };
   } catch (error) {
     console.error('Error getting dashboard data:', error);
     throw error;
   }
+};
+
+// Helper function to get pending verifications
+const getPendingVerifications = async () => {
+  const pendingVerifications = await Product.findAll({
+    'authenticity.isVerified': false,
+    isActive: true
+  });
+
+  return pendingVerifications.map(product => ({
+    id: product.id,
+    productId: product.id,
+    productName: product.name,
+    brand: product.brand.name,
+    price: product.price,
+    seller: { username: 'admin' }, // Replace with real seller data
+    images: product.images,
+    submittedAt: product.createdAt.toISOString()
+  }));
 };
 
 // GET /api/admin/dashboard
@@ -144,13 +128,15 @@ router.get('/stats', (req, res) => {
 });
 
 // GET /api/admin/verifications
-router.get('/verifications', (req, res) => {
+router.get('/verifications', async (req, res) => {
   try {
     console.log('🔍 Pending verifications requested');
     
+    const pendingVerifications = await getPendingVerifications();
+    
     res.json({
       success: true,
-      data: mockDashboardData.pendingVerifications,
+      data: pendingVerifications,
       timestamp: new Date().toISOString()
     });
   } catch (error) {
@@ -158,6 +144,74 @@ router.get('/verifications', (req, res) => {
     res.status(500).json({
       success: false,
       error: 'Failed to fetch verifications',
+      message: error.message
+    });
+  }
+});
+
+// GET /api/admin/metrics - Get detailed metrics
+router.get('/metrics', async (req, res) => {
+  try {
+    console.log('📈 Detailed metrics requested');
+    
+    const metrics = await analyticsService.getDashboardMetrics();
+    
+    res.json({
+      success: true,
+      data: metrics,
+      timestamp: new Date().toISOString()
+    });
+  } catch (error) {
+    console.error('Error fetching metrics:', error);
+    res.status(500).json({
+      success: false,
+      error: 'Failed to fetch metrics',
+      message: error.message
+    });
+  }
+});
+
+// GET /api/admin/trends - Get performance trends
+router.get('/trends', async (req, res) => {
+  try {
+    const { days = 30 } = req.query;
+    console.log(`📊 Performance trends requested for ${days} days`);
+    
+    const trends = await analyticsService.getPerformanceTrends(parseInt(days));
+    
+    res.json({
+      success: true,
+      data: trends,
+      timestamp: new Date().toISOString()
+    });
+  } catch (error) {
+    console.error('Error fetching trends:', error);
+    res.status(500).json({
+      success: false,
+      error: 'Failed to fetch trends',
+      message: error.message
+    });
+  }
+});
+
+// GET /api/admin/activity - Get recent activity
+router.get('/activity', async (req, res) => {
+  try {
+    const { limit = 20 } = req.query;
+    console.log(`📋 Recent activity requested (limit: ${limit})`);
+    
+    const activity = await analyticsService.getRecentActivity(parseInt(limit));
+    
+    res.json({
+      success: true,
+      data: activity,
+      timestamp: new Date().toISOString()
+    });
+  } catch (error) {
+    console.error('Error fetching activity:', error);
+    res.status(500).json({
+      success: false,
+      error: 'Failed to fetch activity',
       message: error.message
     });
   }
