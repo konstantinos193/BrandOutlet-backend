@@ -3,6 +3,7 @@ const router = express.Router();
 const Product = require('../models/Product');
 const { getDB } = require('../config/database');
 const analyticsService = require('../services/analyticsService');
+const aiInsightsService = require('../services/aiInsightsService');
 
 // Helper function to get comprehensive dashboard data
 const getDashboardData = async () => {
@@ -212,6 +213,78 @@ router.get('/activity', async (req, res) => {
     res.status(500).json({
       success: false,
       error: 'Failed to fetch activity',
+      message: error.message
+    });
+  }
+});
+
+// GET /api/admin/insights - Get AI-powered insights
+router.get('/insights', async (req, res) => {
+  try {
+    console.log('🤖 AI insights requested');
+    
+    // Get current metrics
+    const metrics = await analyticsService.getDashboardMetrics();
+    
+    // Generate AI insights
+    const insights = await aiInsightsService.generateInsights(metrics);
+    
+    res.json({
+      success: true,
+      data: insights,
+      timestamp: new Date().toISOString()
+    });
+  } catch (error) {
+    console.error('Error generating AI insights:', error);
+    res.status(500).json({
+      success: false,
+      error: 'Failed to generate insights',
+      message: error.message
+    });
+  }
+});
+
+// POST /api/admin/insights/regenerate - Regenerate insights with specific focus
+router.post('/insights/regenerate', async (req, res) => {
+  try {
+    const { focus } = req.body; // 'sales', 'users', 'performance', 'all'
+    console.log(`🤖 Regenerating AI insights with focus: ${focus || 'all'}`);
+    
+    const metrics = await analyticsService.getDashboardMetrics();
+    let insights;
+    
+    if (focus === 'sales') {
+      insights = {
+        insights: [await aiInsightsService.generateSalesInsight(metrics)],
+        generatedAt: new Date(),
+        confidence: aiInsightsService.calculateConfidence(metrics)
+      };
+    } else if (focus === 'users') {
+      insights = {
+        insights: [await aiInsightsService.generateUserInsight(metrics)],
+        generatedAt: new Date(),
+        confidence: aiInsightsService.calculateConfidence(metrics)
+      };
+    } else if (focus === 'performance') {
+      insights = {
+        insights: [await aiInsightsService.generatePerformanceInsight(metrics)],
+        generatedAt: new Date(),
+        confidence: aiInsightsService.calculateConfidence(metrics)
+      };
+    } else {
+      insights = await aiInsightsService.generateInsights(metrics);
+    }
+    
+    res.json({
+      success: true,
+      data: insights,
+      timestamp: new Date().toISOString()
+    });
+  } catch (error) {
+    console.error('Error regenerating AI insights:', error);
+    res.status(500).json({
+      success: false,
+      error: 'Failed to regenerate insights',
       message: error.message
     });
   }
