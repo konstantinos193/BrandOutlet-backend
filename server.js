@@ -8,6 +8,7 @@ require('dotenv').config();
 const userPreferencesRoutes = require('./api/userPreferences');
 const analyticsRoutes = require('./api/analytics');
 const pageTrackingRoutes = require('./api/pageTracking');
+const { connectDB } = require('./config/database');
 
 const app = express();
 const PORT = process.env.PORT || 3001;
@@ -85,11 +86,26 @@ app.use('*', (req, res) => {
   });
 });
 
-app.listen(PORT, () => {
-  console.log(`🚀 Backend server running on port ${PORT}`);
-  console.log(`📊 Analytics API: http://localhost:${PORT}/api/analytics`);
-  console.log(`👤 User Preferences API: http://localhost:${PORT}/api/user-preferences`);
-  console.log(`📈 Page Tracking API: http://localhost:${PORT}/api/page-tracking`);
-});
+// Start server and connect to database
+const startServer = async () => {
+  try {
+    // Connect to MongoDB Atlas
+    await connectDB();
+    
+    // Start the server
+    app.listen(PORT, () => {
+      console.log(`🚀 Backend server running on port ${PORT}`);
+      console.log(`📊 Analytics API: http://localhost:${PORT}/api/analytics`);
+      console.log(`👤 User Preferences API: http://localhost:${PORT}/api/user-preferences`);
+      console.log(`📈 Page Tracking API: http://localhost:${PORT}/api/page-tracking`);
+      console.log(`🏥 Health Check: http://localhost:${PORT}/health`);
+    });
+  } catch (error) {
+    console.error('❌ Failed to start server:', error);
+    process.exit(1);
+  }
+};
+
+startServer();
 
 module.exports = app;
