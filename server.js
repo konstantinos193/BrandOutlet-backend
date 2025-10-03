@@ -17,11 +17,70 @@ const PORT = process.env.PORT || 3001;
 app.use(helmet());
 
 // CORS configuration
+const allowedOrigins = [
+  process.env.FRONTEND_URL || 'http://localhost:3000',
+  'https://jordioresell.vercel.app', // Add your Vercel domain
+  'https://*.vercel.app', // Allow all Vercel preview deployments
+  'http://localhost:3000', // Local development
+  'http://localhost:3001' // Local backend
+];
+
+// Debug CORS
+console.log('🔧 CORS Configuration:');
+console.log('Allowed Origins:', allowedOrigins);
+console.log('Frontend URL from env:', process.env.FRONTEND_URL);
+console.log('Node Environment:', process.env.NODE_ENV);
+
 app.use(cors({
-  origin: process.env.FRONTEND_URL || 'http://localhost:3000',
+  origin: function (origin, callback) {
+    console.log('🌐 CORS Request from origin:', origin);
+    
+    // Allow requests with no origin (like mobile apps or curl requests)
+    if (!origin) {
+      console.log('✅ Allowing request with no origin');
+      return callback(null, true);
+    }
+    
+    // Check if origin is in allowed list
+    const isAllowed = allowedOrigins.some(allowedOrigin => {
+      if (allowedOrigin.includes('*')) {
+        const isMatch = origin.includes(allowedOrigin.replace('*', ''));
+        console.log(`🔍 Checking wildcard ${allowedOrigin} against ${origin}: ${isMatch}`);
+        return isMatch;
+      }
+      const isMatch = origin === allowedOrigin;
+      console.log(`🔍 Checking exact ${allowedOrigin} against ${origin}: ${isMatch}`);
+      return isMatch;
+    });
+    
+    if (isAllowed) {
+      console.log('✅ Origin allowed:', origin);
+      return callback(null, true);
+    }
+    
+    // For development, allow all origins
+    if (process.env.NODE_ENV === 'development') {
+      console.log('✅ Development mode - allowing origin:', origin);
+      return callback(null, true);
+    }
+    
+    // Reject other origins
+    console.log('❌ Origin rejected:', origin);
+    callback(new Error(`Not allowed by CORS. Origin: ${origin}`));
+  },
   credentials: true,
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
-  allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With']
+  allowedHeaders: [
+    'Content-Type', 
+    'Authorization', 
+    'X-Requested-With',
+    'Accept',
+    'Origin',
+    'Access-Control-Request-Method',
+    'Access-Control-Request-Headers'
+  ],
+  exposedHeaders: ['Content-Length', 'X-Foo', 'X-Bar'],
+  optionsSuccessStatus: 200 // Some legacy browsers choke on 204
 }));
 
 // Rate limiting
