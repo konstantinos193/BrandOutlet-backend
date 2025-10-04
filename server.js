@@ -10,6 +10,14 @@ const analyticsRoutes = require('./api/analytics');
 const pageTrackingRoutes = require('./api/pageTracking');
 const adminRoutes = require('./api/admin');
 const productsRoutes = require('./api/products');
+const variantsRoutes = require('./api/variants');
+const topSellingRoutes = require('./api/topSelling');
+const dataDrivenStrategiesRoutes = require('./api/dataDrivenStrategies');
+const advancedSearchRoutes = require('./api/advancedSearch');
+const ordersRoutes = require('./api/orders');
+const paymentsRoutes = require('./api/payments');
+const refundsRoutes = require('./api/refunds');
+const globalSearchRoutes = require('./api/globalSearch');
 const { connectDB } = require('./config/database');
 
 const app = express();
@@ -136,6 +144,14 @@ app.use('/api/analytics', analyticsRoutes);
 app.use('/api/page-tracking', pageTrackingRoutes);
 app.use('/api/admin', adminRoutes);
 app.use('/api/products', productsRoutes);
+app.use('/api/variants', variantsRoutes);
+app.use('/api/top-selling', topSellingRoutes);
+app.use('/api/data-driven-strategies', dataDrivenStrategiesRoutes);
+app.use('/api/search', advancedSearchRoutes);
+app.use('/api/orders', ordersRoutes);
+app.use('/api/payments', paymentsRoutes);
+app.use('/api/refunds', refundsRoutes);
+app.use('/api/search/global', globalSearchRoutes);
 
 // Error handling middleware
 app.use((err, req, res, next) => {

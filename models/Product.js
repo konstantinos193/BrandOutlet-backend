@@ -153,6 +153,7 @@ class Product {
     try {
       const db = getDB();
       const collection = db.collection('products');
+      const variantsCollection = db.collection('variants');
       
       const totalProducts = await collection.countDocuments();
       const activeProducts = await collection.countDocuments({ isActive: true });
@@ -164,11 +165,19 @@ class Product {
         createdAt: { $gte: sevenDaysAgo }
       });
 
+      // Get variant stats
+      const totalVariants = await variantsCollection.countDocuments();
+      const activeVariants = await variantsCollection.countDocuments({ isActive: true });
+      const outOfStockVariants = await variantsCollection.countDocuments({ stock: 0 });
+
       return {
         totalProducts,
         activeProducts,
         verifiedProducts,
-        recentProducts
+        recentProducts,
+        totalVariants,
+        activeVariants,
+        outOfStockVariants
       };
     } catch (error) {
       console.error('Error fetching dashboard stats:', error);
