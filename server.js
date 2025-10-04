@@ -19,6 +19,7 @@ const paymentsRoutes = require('./api/payments');
 const refundsRoutes = require('./api/refunds');
 const globalSearchRoutes = require('./api/globalSearch');
 const statsRoutes = require('./api/stats');
+const trappersRoutes = require('./api/trappers');
 const { router: sizeConversionRoutes } = require('./api/sizeConversion');
 const { connectDB } = require('./config/database');
 
@@ -155,6 +156,7 @@ app.use('/api/payments', paymentsRoutes);
 app.use('/api/refunds', refundsRoutes);
 app.use('/api/search/global', globalSearchRoutes);
 app.use('/api/stats', statsRoutes);
+app.use('/api/trappers', trappersRoutes);
 app.use('/api/sizeConversion', sizeConversionRoutes);
 
 // Error handling middleware
