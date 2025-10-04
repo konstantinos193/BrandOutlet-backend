@@ -3,6 +3,9 @@ const Joi = require('joi');
 const { v4: uuidv4 } = require('uuid');
 const router = express.Router();
 
+// Import size conversion logic
+const { convertSizeToEU } = require('./sizeConversion');
+
 // In-memory storage for demo (replace with database in production)
 let userPreferences = [];
 let analyticsData = {
@@ -19,6 +22,7 @@ const userPreferencesSchema = Joi.object({
   gender: Joi.string().valid('male', 'female').required(),
   clothingSize: Joi.string().required(),
   shoeSize: Joi.string().required(),
+  region: Joi.string().optional().default('US'),
   sessionId: Joi.string().optional(),
   userAgent: Joi.string().optional(),
   timestamp: Joi.date().default(Date.now)
@@ -35,10 +39,28 @@ router.post('/', async (req, res) => {
       });
     }
 
-    // Add unique ID and timestamp
+    // Convert sizes to EU standard automatically
+    const euClothingSize = convertSizeToEU(value.gender, value.clothingSize, value.region, 'clothing');
+    const euShoeSize = convertSizeToEU(value.gender, value.shoeSize, value.region, 'shoe');
+
+    // Add unique ID, timestamp, and converted sizes
     const preferenceData = {
       id: uuidv4(),
       ...value,
+      euClothingSize,
+      euShoeSize,
+      sizeConversion: {
+        clothing: {
+          original: value.clothingSize,
+          region: value.region,
+          eu: euClothingSize
+        },
+        shoe: {
+          original: value.shoeSize,
+          region: value.region,
+          eu: euShoeSize
+        }
+      },
       timestamp: new Date(),
       ipAddress: req.ip,
       userAgent: req.get('User-Agent')

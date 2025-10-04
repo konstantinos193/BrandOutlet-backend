@@ -171,4 +171,16 @@ router.get('/regions', async (req, res) => {
   }
 });
 
-module.exports = router;
+// Helper function to convert size to EU (for use by other modules)
+function convertSizeToEU(gender, size, region, type = 'clothing') {
+  const conversionMap = type === 'shoe' ? shoeSizeConversionMap : sizeConversionMap;
+  const genderMap = conversionMap[gender];
+  
+  if (!genderMap) {
+    return size; // Fallback to original size
+  }
+  
+  return genderMap[size] || size; // Fallback to original if no conversion found
+}
+
+module.exports = { router, convertSizeToEU };
