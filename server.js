@@ -19,6 +19,7 @@ const paymentsRoutes = require('./api/payments');
 const refundsRoutes = require('./api/refunds');
 const globalSearchRoutes = require('./api/globalSearch');
 const statsRoutes = require('./api/stats');
+const sizeConversionRoutes = require('./api/sizeConversion');
 const { connectDB } = require('./config/database');
 
 const app = express();
@@ -154,6 +155,7 @@ app.use('/api/payments', paymentsRoutes);
 app.use('/api/refunds', refundsRoutes);
 app.use('/api/search/global', globalSearchRoutes);
 app.use('/api/stats', statsRoutes);
+app.use('/api/sizeConversion', sizeConversionRoutes);
 
 // Error handling middleware
 app.use((err, req, res, next) => {
