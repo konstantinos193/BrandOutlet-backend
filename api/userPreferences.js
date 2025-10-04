@@ -20,8 +20,8 @@ let analyticsData = {
 // Validation schemas
 const userPreferencesSchema = Joi.object({
   gender: Joi.string().valid('male', 'female').required(),
-  clothingSize: Joi.string().required(),
-  shoeSize: Joi.string().required(),
+  clothingSize: Joi.string().min(1).required(),
+  shoeSize: Joi.string().min(1).required(),
   region: Joi.string().optional().default('US'),
   sessionId: Joi.string().optional(),
   userAgent: Joi.string().optional(),
@@ -31,9 +31,13 @@ const userPreferencesSchema = Joi.object({
 // POST /api/user-preferences - Save user preferences
 router.post('/', async (req, res) => {
   try {
+    console.log('User preferences request body:', JSON.stringify(req.body, null, 2));
+    
     const { error, value } = userPreferencesSchema.validate(req.body);
     if (error) {
+      console.error('Validation error:', error.details);
       return res.status(400).json({
+        success: false,
         error: 'Validation error',
         details: error.details[0].message
       });

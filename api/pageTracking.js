@@ -139,6 +139,14 @@ router.post('/view', async (req, res) => {
 // POST /api/page-tracking/exit - Track page exit
 router.post('/exit', async (req, res) => {
   try {
+    // Add null checks for req.body
+    if (!req.body) {
+      return res.status(400).json({
+        success: false,
+        error: 'Request body is required'
+      });
+    }
+
     const { sessionId, page, duration } = req.body;
 
     // Find the last page view for this session and update it

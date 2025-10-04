@@ -79,7 +79,22 @@ function parseUserAgent(userAgent) {
       };
     }
 
-    const ua = new UserAgent(userAgent);
+    let ua;
+    try {
+      ua = new UserAgent(userAgent);
+    } catch (error) {
+      console.warn('UserAgent parsing failed, using fallback:', error.message);
+      return {
+        browser: 'Unknown',
+        browserVersion: 'Unknown',
+        os: 'Unknown',
+        osVersion: 'Unknown',
+        device: 'Unknown',
+        isMobile: false,
+        isTablet: false,
+        isDesktop: true
+      };
+    }
     
     return {
       browser: (ua.browser && ua.browser.name) || 'Unknown',
