@@ -19,7 +19,7 @@ const paymentsRoutes = require('./api/payments');
 const refundsRoutes = require('./api/refunds');
 const globalSearchRoutes = require('./api/globalSearch');
 const statsRoutes = require('./api/stats');
-const sizeConversionRoutes = require('./api/sizeConversion');
+const { router: sizeConversionRoutes } = require('./api/sizeConversion');
 const { connectDB } = require('./config/database');
 
 const app = express();
