@@ -203,6 +203,58 @@ class Product {
       throw error;
     }
   }
+
+  // Count products with filters
+  static async count(filters = {}) {
+    try {
+      const db = getDB();
+      const collection = db.collection('products');
+      
+      const query = {};
+      
+      // Apply filters
+      if (filters.brandId) query.brandId = filters.brandId;
+      if (filters.category) query.category = filters.category;
+      if (filters.isActive !== undefined) query.isActive = filters.isActive;
+      if (filters.minPrice || filters.maxPrice) {
+        query.price = {};
+        if (filters.minPrice) query.price.$gte = filters.minPrice;
+        if (filters.maxPrice) query.price.$lte = filters.maxPrice;
+      }
+
+      return await collection.countDocuments(query);
+    } catch (error) {
+      console.error('Error counting products:', error);
+      throw error;
+    }
+  }
+
+  // Get unique brands count
+  static async getUniqueBrandsCount() {
+    try {
+      const db = getDB();
+      const collection = db.collection('products');
+      
+      const result = await collection.distinct('brandId', { isActive: true });
+      return result.length;
+    } catch (error) {
+      console.error('Error getting unique brands count:', error);
+      throw error;
+    }
+  }
+
+  // Get total variants count
+  static async getTotalVariantsCount() {
+    try {
+      const db = getDB();
+      const variantsCollection = db.collection('variants');
+      
+      return await variantsCollection.countDocuments();
+    } catch (error) {
+      console.error('Error getting total variants count:', error);
+      throw error;
+    }
+  }
 }
 
 module.exports = Product;
