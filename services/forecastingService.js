@@ -1,5 +1,37 @@
 const { connectDB } = require('../config/database');
 
+// Simple Linear Regression class for forecasting
+class SimpleLinearRegression {
+  constructor(xValues, yValues) {
+    this.xValues = xValues;
+    this.yValues = yValues;
+    this.slope = this.calculateSlope();
+    this.intercept = this.calculateIntercept();
+  }
+
+  calculateSlope() {
+    const n = this.xValues.length;
+    const sumX = this.xValues.reduce((sum, x) => sum + x, 0);
+    const sumY = this.yValues.reduce((sum, y) => sum + y, 0);
+    const sumXY = this.xValues.reduce((sum, x, i) => sum + x * this.yValues[i], 0);
+    const sumXX = this.xValues.reduce((sum, x) => sum + x * x, 0);
+    
+    return (n * sumXY - sumX * sumY) / (n * sumXX - sumX * sumX);
+  }
+
+  calculateIntercept() {
+    const n = this.xValues.length;
+    const sumX = this.xValues.reduce((sum, x) => sum + x, 0);
+    const sumY = this.yValues.reduce((sum, y) => sum + y, 0);
+    
+    return (sumY - this.slope * sumX) / n;
+  }
+
+  predict(x) {
+    return this.slope * x + this.intercept;
+  }
+}
+
 class ForecastingService {
   constructor() {
     this.db = null;
@@ -8,38 +40,6 @@ class ForecastingService {
   async initialize() {
     if (!this.db) {
       this.db = await connectDB();
-    }
-  }
-
-  // Simple Linear Regression class for forecasting
-  class SimpleLinearRegression {
-    constructor(xValues, yValues) {
-      this.xValues = xValues;
-      this.yValues = yValues;
-      this.slope = this.calculateSlope();
-      this.intercept = this.calculateIntercept();
-    }
-
-    calculateSlope() {
-      const n = this.xValues.length;
-      const sumX = this.xValues.reduce((sum, x) => sum + x, 0);
-      const sumY = this.yValues.reduce((sum, y) => sum + y, 0);
-      const sumXY = this.xValues.reduce((sum, x, i) => sum + x * this.yValues[i], 0);
-      const sumXX = this.xValues.reduce((sum, x) => sum + x * x, 0);
-      
-      return (n * sumXY - sumX * sumY) / (n * sumXX - sumX * sumX);
-    }
-
-    calculateIntercept() {
-      const n = this.xValues.length;
-      const sumX = this.xValues.reduce((sum, x) => sum + x, 0);
-      const sumY = this.yValues.reduce((sum, y) => sum + y, 0);
-      
-      return (sumY - this.slope * sumX) / n;
-    }
-
-    predict(x) {
-      return this.slope * x + this.intercept;
     }
   }
 
@@ -131,7 +131,7 @@ class ForecastingService {
     const yValues = sortedData.map((item) => item.actual || item.value || 0);
     
     // Create linear regression model
-    const regression = new this.SimpleLinearRegression(xValues, yValues);
+    const regression = new SimpleLinearRegression(xValues, yValues);
     
     // Calculate volatility
     const volatility = this.calculateVolatility(yValues);
