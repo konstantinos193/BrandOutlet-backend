@@ -1,18 +1,29 @@
 const express = require('express');
 const router = express.Router();
 const insightsService = require('../services/insightsService');
+const realDataInsightsService = require('../services/realDataInsightsService');
 
-// GET /api/insights - Get AI-powered insights
+// GET /api/insights - Get AI-powered insights (now using real data)
 router.get('/', async (req, res) => {
   try {
-    const { focus = 'all' } = req.query;
+    const { focus = 'all', useRealData = 'true', useAI = 'true' } = req.query;
     
-    const insights = await insightsService.generateInsights(focus);
+    console.log(`🤖 AI insights requested with focus: ${focus}, real data: ${useRealData}, AI: ${useAI}`);
+    
+    let insights;
+    if (useRealData === 'true') {
+      // Use real data insights service with optional AI enhancement
+      insights = await realDataInsightsService.generateInsights(focus, useAI === 'true');
+    } else {
+      // Fallback to mock data service
+      insights = await insightsService.generateInsights(focus);
+    }
     
     res.json({
       success: true,
       data: insights,
-      timestamp: new Date().toISOString()
+      timestamp: new Date().toISOString(),
+      dataSource: useRealData === 'true' ? (useAI === 'true' ? 'ai-enhanced' : 'real-rule-based') : 'mock'
     });
   } catch (error) {
     console.error('Error generating insights:', error);

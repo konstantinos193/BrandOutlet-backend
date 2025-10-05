@@ -4,6 +4,7 @@ const Product = require('../models/Product');
 const { getDB } = require('../config/database');
 const analyticsService = require('../services/analyticsService');
 const aiInsightsService = require('../services/aiInsightsService');
+const realDataInsightsService = require('../services/realDataInsightsService');
 
 // Helper function to get comprehensive dashboard data
 const getDashboardData = async () => {
@@ -306,21 +307,27 @@ router.get('/activity', async (req, res) => {
   }
 });
 
-// GET /api/admin/insights - Get AI-powered insights
+// GET /api/admin/insights - Get AI-powered insights (now using real data)
 router.get('/insights', async (req, res) => {
   try {
-    console.log('🤖 AI insights requested');
+    const { useRealData = 'true' } = req.query;
+    console.log(`🤖 AI insights requested, real data: ${useRealData}`);
     
-    // Get current metrics
-    const metrics = await analyticsService.getDashboardMetrics();
-    
-    // Generate AI insights
-    const insights = await aiInsightsService.generateInsights(metrics);
+    let insights;
+    if (useRealData === 'true') {
+      // Use real data insights service
+      insights = await realDataInsightsService.generateInsights('all');
+    } else {
+      // Fallback to mock data service
+      const metrics = await analyticsService.getDashboardMetrics();
+      insights = await aiInsightsService.generateInsights(metrics);
+    }
     
     res.json({
       success: true,
       data: insights,
-      timestamp: new Date().toISOString()
+      timestamp: new Date().toISOString(),
+      dataSource: useRealData === 'true' ? 'real' : 'mock'
     });
   } catch (error) {
     console.error('Error generating AI insights:', error);
@@ -335,38 +342,45 @@ router.get('/insights', async (req, res) => {
 // POST /api/admin/insights/regenerate - Regenerate insights with specific focus
 router.post('/insights/regenerate', async (req, res) => {
   try {
-    const { focus } = req.body; // 'sales', 'users', 'performance', 'all'
-    console.log(`🤖 Regenerating AI insights with focus: ${focus || 'all'}`);
+    const { focus = 'all', useRealData = 'true' } = req.body;
+    console.log(`🤖 Regenerating AI insights with focus: ${focus}, real data: ${useRealData}`);
     
-    const metrics = await analyticsService.getDashboardMetrics();
     let insights;
-    
-    if (focus === 'sales') {
-      insights = {
-        insights: [await aiInsightsService.generateSalesInsight(metrics)],
-        generatedAt: new Date(),
-        confidence: aiInsightsService.calculateConfidence(metrics)
-      };
-    } else if (focus === 'users') {
-      insights = {
-        insights: [await aiInsightsService.generateUserInsight(metrics)],
-        generatedAt: new Date(),
-        confidence: aiInsightsService.calculateConfidence(metrics)
-      };
-    } else if (focus === 'performance') {
-      insights = {
-        insights: [await aiInsightsService.generatePerformanceInsight(metrics)],
-        generatedAt: new Date(),
-        confidence: aiInsightsService.calculateConfidence(metrics)
-      };
+    if (useRealData === 'true') {
+      // Use real data insights service
+      insights = await realDataInsightsService.generateInsights(focus);
     } else {
-      insights = await aiInsightsService.generateInsights(metrics);
+      // Fallback to mock data service
+      const metrics = await analyticsService.getDashboardMetrics();
+      
+      if (focus === 'sales') {
+        insights = {
+          insights: [await aiInsightsService.generateSalesInsight(metrics)],
+          generatedAt: new Date(),
+          confidence: aiInsightsService.calculateConfidence(metrics)
+        };
+      } else if (focus === 'users') {
+        insights = {
+          insights: [await aiInsightsService.generateUserInsight(metrics)],
+          generatedAt: new Date(),
+          confidence: aiInsightsService.calculateConfidence(metrics)
+        };
+      } else if (focus === 'performance') {
+        insights = {
+          insights: [await aiInsightsService.generatePerformanceInsight(metrics)],
+          generatedAt: new Date(),
+          confidence: aiInsightsService.calculateConfidence(metrics)
+        };
+      } else {
+        insights = await aiInsightsService.generateInsights(metrics);
+      }
     }
     
     res.json({
       success: true,
       data: insights,
-      timestamp: new Date().toISOString()
+      timestamp: new Date().toISOString(),
+      dataSource: useRealData === 'true' ? 'real' : 'mock'
     });
   } catch (error) {
     console.error('Error regenerating AI insights:', error);
