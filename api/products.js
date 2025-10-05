@@ -4,6 +4,7 @@ const Product = require('../models/Product');
 const { getDB } = require('../config/database');
 const multer = require('multer');
 const cloudinary = require('cloudinary').v2;
+const cacheService = require('../services/cacheService');
 
 // Configure Cloudinary
 cloudinary.config({
@@ -48,7 +49,28 @@ router.get('/', async (req, res) => {
       limit = 20
     } = req.query;
 
-    console.log('🛍️ Fetching products from database');
+    console.log('🛍️ Fetching products with caching');
+
+    // Create cache parameters
+    const cacheParams = {
+      search,
+      brands,
+      categories,
+      minPrice,
+      maxPrice,
+      condition,
+      size,
+      color,
+      inStock,
+      sortBy,
+      sortOrder,
+      page,
+      limit
+    };
+
+    // Use cache service to get products
+    const result = await cacheService.cacheProducts(cacheParams, async () => {
+      console.log('📦 Cache MISS - Fetching from database');
 
     // Build query filters
     let query = { isActive: true };

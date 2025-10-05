@@ -5,34 +5,36 @@ const morgan = require('morgan');
 const rateLimit = require('express-rate-limit');
 require('dotenv').config();
 
-const userPreferencesRoutes = require('./api/userPreferences');
-const analyticsRoutes = require('./api/analytics');
-const pageTrackingRoutes = require('./api/pageTracking');
-const adminRoutes = require('./api/admin');
-const productsRoutes = require('./api/products');
-const variantsRoutes = require('./api/variants');
-const topSellingRoutes = require('./api/topSelling');
-const dataDrivenStrategiesRoutes = require('./api/dataDrivenStrategies');
-const advancedSearchRoutes = require('./api/advancedSearch');
-const ordersRoutes = require('./api/orders');
-const paymentsRoutes = require('./api/payments');
-const refundsRoutes = require('./api/refunds');
-const globalSearchRoutes = require('./api/globalSearch');
-const statsRoutes = require('./api/stats');
-const trappersRoutes = require('./api/trappers');
-const { router: sizeConversionRoutes } = require('./api/sizeConversion');
-const seoRoutes = require('./api/seo');
-const unifiedAnalyticsRoutes = require('./api/unifiedAnalytics');
-const forecastingRoutes = require('./api/forecasting');
-const realTimeRoutes = require('./api/realTime');
-const insightsRoutes = require('./api/insights');
-const seasonalTrendsRoutes = require('./api/seasonalTrends');
-const productManagementRoutes = require('./api/productManagement');
-const cartRoutes = require('./api/cart');
-const userManagementRoutes = require('./api/userManagement');
-const dashboardRoutes = require('./api/dashboard');
-const notificationsRoutes = require('./api/notifications');
-const customOrdersRoutes = require('./api/customOrders');
+// Import route loader for dynamic loading
+const { getLazyRouteHandler, preloadCriticalRoutes } = require('./utils/routeLoader');
+const { preloadCriticalServices } = require('./utils/serviceLoader');
+
+// Import Redis client
+const redisClient = require('./config/redis');
+
+// Critical routes that should be loaded immediately
+const criticalRoutes = [
+  './api/userPreferences',
+  './api/analytics',
+  './api/pageTracking',
+  './api/products',
+  './api/cart'
+];
+
+// Heavy routes that can be loaded on-demand
+const heavyRoutes = [
+  './api/admin',
+  './api/unifiedAnalytics',
+  './api/forecasting',
+  './api/realTime',
+  './api/insights',
+  './api/seasonalTrends',
+  './api/productManagement',
+  './api/userManagement',
+  './api/dashboard',
+  './api/notifications',
+  './api/customOrders'
+];
 const { connectDB } = require('./config/database');
 
 const app = express();
@@ -153,37 +155,41 @@ app.get(healthCheckPath, (req, res) => {
   res.status(200).json(healthData);
 });
 
-// API routes
-app.use('/api/user-preferences', userPreferencesRoutes);
-app.use('/api/analytics', analyticsRoutes);
-app.use('/api/page-tracking', pageTrackingRoutes);
-app.use('/api/admin', adminRoutes);
-app.use('/api/products', productsRoutes);
-app.use('/api/variants', variantsRoutes);
-app.use('/api/top-selling', topSellingRoutes);
-app.use('/api/data-driven-strategies', dataDrivenStrategiesRoutes);
-app.use('/api/search', advancedSearchRoutes);
-app.use('/api/orders', ordersRoutes);
-app.use('/api/payments', paymentsRoutes);
-app.use('/api/refunds', refundsRoutes);
-app.use('/api/search/global', globalSearchRoutes);
-app.use('/api/stats', statsRoutes);
-app.use('/api/trappers', trappersRoutes);
-app.use('/api/sizeConversion', sizeConversionRoutes);
-app.use('/api/seo', seoRoutes);
+// API routes - Critical routes loaded immediately
+app.use('/api/user-preferences', getLazyRouteHandler('./api/userPreferences'));
+app.use('/api/analytics', getLazyRouteHandler('./api/analytics-cached')); // Use cached analytics
+app.use('/api/page-tracking', getLazyRouteHandler('./api/pageTracking'));
+app.use('/api/products', getLazyRouteHandler('./api/products-cached')); // Use cached products
+app.use('/api/cart', getLazyRouteHandler('./api/cart'));
+
+// Heavy routes loaded on-demand
+app.use('/api/admin', getLazyRouteHandler('./api/admin'));
+app.use('/api/unified-analytics', getLazyRouteHandler('./api/unifiedAnalytics'));
+app.use('/api/forecasting', getLazyRouteHandler('./api/forecasting'));
+app.use('/api/real-time', getLazyRouteHandler('./api/realTime'));
+app.use('/api/insights', getLazyRouteHandler('./api/insights'));
+app.use('/api/seasonal-trends', getLazyRouteHandler('./api/seasonalTrends'));
+app.use('/api/product-management', getLazyRouteHandler('./api/productManagement'));
+app.use('/api/user-management', getLazyRouteHandler('./api/userManagement'));
+app.use('/api/dashboard', getLazyRouteHandler('./api/dashboard'));
+app.use('/api/notifications', getLazyRouteHandler('./api/notifications'));
+app.use('/api/custom-orders', getLazyRouteHandler('./api/customOrders'));
+
+// Additional routes with lazy loading
+app.use('/api/variants', getLazyRouteHandler('./api/variants'));
+app.use('/api/top-selling', getLazyRouteHandler('./api/topSelling'));
+app.use('/api/data-driven-strategies', getLazyRouteHandler('./api/dataDrivenStrategies'));
+app.use('/api/search', getLazyRouteHandler('./api/advancedSearch'));
+app.use('/api/orders', getLazyRouteHandler('./api/orders'));
+app.use('/api/payments', getLazyRouteHandler('./api/payments'));
+app.use('/api/refunds', getLazyRouteHandler('./api/refunds'));
+app.use('/api/search/global', getLazyRouteHandler('./api/globalSearch'));
+app.use('/api/stats', getLazyRouteHandler('./api/stats'));
+app.use('/api/trappers', getLazyRouteHandler('./api/trappers'));
+app.use('/api/sizeConversion', getLazyRouteHandler('./api/sizeConversion'));
+app.use('/api/seo', getLazyRouteHandler('./api/seo'));
 // Legacy SEO metrics endpoint for backward compatibility
-app.use('/api/seo-metrics', seoRoutes);
-app.use('/api/unified-analytics', unifiedAnalyticsRoutes);
-app.use('/api/forecasting', forecastingRoutes);
-app.use('/api/real-time', realTimeRoutes);
-app.use('/api/insights', insightsRoutes);
-app.use('/api/seasonal-trends', seasonalTrendsRoutes);
-app.use('/api/product-management', productManagementRoutes);
-app.use('/api/cart', cartRoutes);
-app.use('/api/user-management', userManagementRoutes);
-app.use('/api/dashboard', dashboardRoutes);
-app.use('/api/notifications', notificationsRoutes);
-app.use('/api/custom-orders', customOrdersRoutes);
+app.use('/api/seo-metrics', getLazyRouteHandler('./api/seo'));
 
 // Error handling middleware
 app.use((err, req, res, next) => {
@@ -208,6 +214,12 @@ const startServer = async () => {
     // Connect to MongoDB Atlas
     await connectDB();
     
+    // Connect to Redis
+    await redisClient.connect();
+    
+    // Preload critical routes for faster initial response
+    await preloadCriticalRoutes(criticalRoutes);
+    
     // Start the server
     app.listen(PORT, () => {
       console.log(`🚀 Backend server running on port ${PORT}`);
@@ -216,6 +228,8 @@ const startServer = async () => {
       console.log(`📈 Page Tracking API: http://localhost:${PORT}/api/page-tracking`);
       console.log(`🔧 Admin API: http://localhost:${PORT}/api/admin`);
       console.log(`🏥 Health Check: http://localhost:${PORT}/health`);
+      console.log(`⚡ Code splitting enabled - heavy routes loaded on-demand`);
+      console.log(`📦 Redis caching enabled - API queries cached for performance`);
     });
   } catch (error) {
     console.error('❌ Failed to start server:', error);
