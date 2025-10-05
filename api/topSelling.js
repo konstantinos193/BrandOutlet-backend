@@ -33,41 +33,51 @@ router.get('/', async (req, res) => {
       .toArray();
     
     // Calculate sales metrics for each product
-    const topProducts = products.map((product, index) => {
-      const salesVolume = product.salesCount || 0;
-      const revenue = salesVolume * (product.price || 0);
-      const margin = revenue * 0.2; // 20% margin assumption
-      const marginPercentage = 20;
-      
-      // Calculate trend (mock for now - would need historical data)
-      const trend = salesVolume > 10 ? 'up' : salesVolume > 5 ? 'stable' : 'down';
-      const trendPercentage = trend === 'up' ? Math.random() * 20 : trend === 'down' ? -Math.random() * 10 : Math.random() * 5;
-      
-      return {
-        id: product._id ? product._id.toString() : `unknown_${index}`,
-        name: product.name,
-        brand: {
-          name: product.brand?.name || 'Unknown',
-          logo: product.brand?.logo || '/brands/default.png'
-        },
-        image: product.images?.[0] || '/products/placeholder.jpg',
-        salesVolume,
-        revenue: Math.round(revenue),
-        margin: Math.round(margin),
-        marginPercentage,
-        price: product.price || 0,
-        category: product.category || 'Other',
-        condition: product.condition || 'New',
-        trend,
-        trendPercentage: Math.round(trendPercentage * 10) / 10,
-        rank: index + 1
-      };
-    });
+    const topProducts = products
+      .filter(product => product != null) // Filter out null/undefined products
+      .map((product, index) => {
+        try {
+          const salesVolume = product.salesCount || 0;
+          const revenue = salesVolume * (product.price || 0);
+          const margin = revenue * 0.2; // 20% margin assumption
+          const marginPercentage = 20;
+          
+          // Calculate trend (mock for now - would need historical data)
+          const trend = salesVolume > 10 ? 'up' : salesVolume > 5 ? 'stable' : 'down';
+          const trendPercentage = trend === 'up' ? Math.random() * 20 : trend === 'down' ? -Math.random() * 10 : Math.random() * 5;
+          
+          return {
+            id: (product._id && typeof product._id.toString === 'function') ? product._id.toString() : `unknown_${index}`,
+            name: product.name || 'Unknown Product',
+            brand: {
+              name: product.brand?.name || 'Unknown',
+              logo: product.brand?.logo || '/brands/default.png'
+            },
+            image: product.images?.[0] || '/products/placeholder.jpg',
+            salesVolume,
+            revenue: Math.round(revenue),
+            margin: Math.round(margin),
+            marginPercentage,
+            price: product.price || 0,
+            category: product.category || 'Other',
+            condition: product.condition || 'New',
+            trend,
+            trendPercentage: Math.round(trendPercentage * 10) / 10,
+            rank: index + 1
+          };
+        } catch (error) {
+          console.error(`Error processing product at index ${index}:`, error);
+          return null;
+        }
+      })
+      .filter(product => product != null); // Remove any null products from errors
     
     // Get top brands by aggregating product data
     const brandStats = {};
-    products.forEach(product => {
-      const brandName = product.brand?.name || 'Unknown';
+    products
+      .filter(product => product != null) // Filter out null/undefined products
+      .forEach(product => {
+        const brandName = product.brand?.name || 'Unknown';
       if (!brandStats[brandName]) {
         brandStats[brandName] = {
           name: brandName,
@@ -173,7 +183,9 @@ router.get('/products', async (req, res) => {
       .toArray();
     
     // Calculate sales metrics for each product
-    const topProducts = products.map((product, index) => {
+    const topProducts = products
+      .filter(product => product != null) // Filter out null/undefined products
+      .map((product, index) => {
       const salesVolume = product.salesCount || 0;
       const revenue = salesVolume * (product.price || 0);
       const margin = revenue * 0.2; // 20% margin assumption
@@ -184,8 +196,8 @@ router.get('/products', async (req, res) => {
       const trendPercentage = trend === 'up' ? Math.random() * 20 : trend === 'down' ? -Math.random() * 10 : Math.random() * 5;
       
       return {
-        id: product._id ? product._id.toString() : `unknown_${index}`,
-        name: product.name,
+        id: (product._id && typeof product._id.toString === 'function') ? product._id.toString() : `unknown_${index}`,
+        name: product.name || 'Unknown Product',
         brand: {
           name: product.brand?.name || 'Unknown',
           logo: product.brand?.logo || '/brands/default.png'
@@ -253,8 +265,10 @@ router.get('/brands', async (req, res) => {
     
     // Calculate brand statistics
     const brandStats = {};
-    products.forEach(product => {
-      const brandName = product.brand?.name || 'Unknown';
+    products
+      .filter(product => product != null) // Filter out null/undefined products
+      .forEach(product => {
+        const brandName = product.brand?.name || 'Unknown';
       if (!brandStats[brandName]) {
         brandStats[brandName] = {
           name: brandName,
@@ -334,8 +348,10 @@ router.get('/categories', async (req, res) => {
     
     // Calculate category statistics
     const categoryStats = {};
-    products.forEach(product => {
-      const category = product.category || 'Other';
+    products
+      .filter(product => product != null) // Filter out null/undefined products
+      .forEach(product => {
+        const category = product.category || 'Other';
       if (!categoryStats[category]) {
         categoryStats[category] = {
           name: category,

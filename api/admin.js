@@ -83,8 +83,15 @@ const getPendingVerifications = async () => {
     productName: product.name,
     brand: product.brand.name,
     price: product.price,
-    seller: { username: 'admin' }, // Replace with real seller data
-    images: product.images,
+    condition: product.condition || 'new',
+    category: product.category || 'General',
+    seller: {
+      id: product.seller?.id || 'unknown',
+      username: product.seller?.username || product.seller?.name || 'Unknown User',
+      name: product.seller?.name || 'Unknown User',
+      email: product.seller?.email || 'unknown@example.com'
+    },
+    images: product.images || [],
     submittedAt: product.createdAt.toISOString()
   }));
 };
