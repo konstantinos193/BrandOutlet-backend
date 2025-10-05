@@ -2,6 +2,32 @@ const express = require('express');
 const router = express.Router();
 const Product = require('../models/Product');
 const { getDB } = require('../config/database');
+const multer = require('multer');
+const cloudinary = require('cloudinary').v2;
+
+// Configure Cloudinary
+cloudinary.config({
+  cloud_name: process.env.CLOUDINARY_CLOUD_NAME,
+  api_key: process.env.CLOUDINARY_API_KEY,
+  api_secret: process.env.CLOUDINARY_API_SECRET
+});
+
+// Configure multer for memory storage (for Cloudinary)
+const storage = multer.memoryStorage();
+const upload = multer({ 
+  storage: storage,
+  limits: { fileSize: 10 * 1024 * 1024 }, // 10MB limit
+  fileFilter: (req, file, cb) => {
+    const allowedTypes = /jpeg|jpg|png|gif|webp/;
+    const mimetype = allowedTypes.test(file.mimetype);
+    
+    if (mimetype) {
+      return cb(null, true);
+    } else {
+      cb(new Error('Only image files are allowed!'));
+    }
+  }
+});
 
 // GET /api/products - Get products with filtering, sorting, and pagination
 router.get('/', async (req, res) => {
@@ -363,6 +389,168 @@ router.get('/brands', async (req, res) => {
     res.status(500).json({
       success: false,
       error: 'Failed to fetch brands',
+      message: error.message
+    });
+  }
+});
+
+// POST /api/products - Create a new product
+router.post('/', upload.array('images', 5), async (req, res) => {
+  try {
+    const {
+      name,
+      brand,
+      category,
+      price,
+      description,
+      condition,
+      featured = false,
+      sizes = [],
+      colors = []
+    } = req.body;
+
+    // Validate required fields
+    if (!name || !brand || !category || !price || !description) {
+      return res.status(400).json({
+        success: false,
+        error: 'Missing required fields: name, brand, category, price, description'
+      });
+    }
+
+    // Upload images to Cloudinary
+    const imageUrls = [];
+    if (req.files && req.files.length > 0) {
+      for (const file of req.files) {
+        try {
+          const result = await cloudinary.uploader.upload(
+            `data:${file.mimetype};base64,${file.buffer.toString('base64')}`,
+            {
+              folder: 'resellhub/products',
+              resource_type: 'auto',
+              transformation: [
+                { width: 800, height: 800, crop: 'limit', quality: 'auto' },
+                { format: 'auto' }
+              ]
+            }
+          );
+          imageUrls.push(result.secure_url);
+        } catch (uploadError) {
+          console.error('Error uploading image to Cloudinary:', uploadError);
+          // Continue with other images even if one fails
+        }
+      }
+    }
+
+    // Create product data
+    const productData = {
+      name: name.trim(),
+      brand: {
+        name: brand.trim(),
+        logo: '' // Will be set later if needed
+      },
+      category: category.trim(),
+      subcategory: '',
+      price: parseFloat(price),
+      originalPrice: parseFloat(price),
+      discount: 0,
+      images: imageUrls.length > 0 ? imageUrls : ['/products/placeholder.jpg'],
+      description: description.trim(),
+      condition: condition || 'new',
+      sizes: Array.isArray(sizes) ? sizes : [],
+      colors: Array.isArray(colors) ? colors : [],
+      isActive: true,
+      isFeatured: featured === 'true' || featured === true,
+      rating: 0,
+      reviewCount: 0,
+      salesCount: 0,
+      seller: {
+        id: 'admin',
+        name: 'Admin',
+        email: 'admin@brandoutlet.com'
+      },
+      createdAt: new Date(),
+      updatedAt: new Date()
+    };
+
+    // Save to database
+    const db = getDB();
+    const collection = db.collection('products');
+    const result = await collection.insertOne(productData);
+
+    console.log('✅ Product created successfully:', result.insertedId);
+
+    res.status(201).json({
+      success: true,
+      message: 'Product created successfully',
+      data: {
+        id: result.insertedId,
+        ...productData
+      }
+    });
+
+  } catch (error) {
+    console.error('❌ Error creating product:', error);
+    res.status(500).json({
+      success: false,
+      error: 'Failed to create product',
+      message: error.message
+    });
+  }
+});
+
+// POST /api/products/upload-images - Upload images only
+router.post('/upload-images', upload.array('images', 10), async (req, res) => {
+  try {
+    if (!req.files || req.files.length === 0) {
+      return res.status(400).json({
+        success: false,
+        error: 'No images provided'
+      });
+    }
+
+    const imageUrls = [];
+    for (const file of req.files) {
+      try {
+        const result = await cloudinary.uploader.upload(
+          `data:${file.mimetype};base64,${file.buffer.toString('base64')}`,
+          {
+            folder: 'resellhub/products',
+            resource_type: 'auto',
+            transformation: [
+              { width: 800, height: 800, crop: 'limit', quality: 'auto' },
+              { format: 'auto' }
+            ]
+          }
+        );
+        imageUrls.push({
+          url: result.secure_url,
+          public_id: result.public_id,
+          width: result.width,
+          height: result.height
+        });
+      } catch (uploadError) {
+        console.error('Error uploading image to Cloudinary:', uploadError);
+        return res.status(500).json({
+          success: false,
+          error: 'Failed to upload images',
+          message: uploadError.message
+        });
+      }
+    }
+
+    res.json({
+      success: true,
+      message: 'Images uploaded successfully',
+      data: {
+        images: imageUrls
+      }
+    });
+
+  } catch (error) {
+    console.error('❌ Error uploading images:', error);
+    res.status(500).json({
+      success: false,
+      error: 'Failed to upload images',
       message: error.message
     });
   }

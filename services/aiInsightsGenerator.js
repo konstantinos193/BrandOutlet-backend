@@ -66,27 +66,30 @@ class AIInsightsGenerator {
   async generateWithHuggingFace(realData, focus) {
     const prompt = this.buildHuggingFacePrompt(realData, focus);
     
-    // Try multiple models in order of preference
+    // Try multiple working models in order of preference
     const models = [
-      'microsoft/DialoGPT-large',
-      'microsoft/DialoGPT-medium', 
-      'facebook/blenderbot-400M-distill'
+      'microsoft/DialoGPT-medium',
+      'facebook/blenderbot-400M-distill',
+      'gpt2',
+      'distilgpt2'
     ];
     
     let lastError = null;
     
     for (const model of models) {
       try {
+        console.log(`Trying Hugging Face model: ${model}`);
         const response = await axios.post(
           `https://api-inference.huggingface.co/models/${model}`,
           {
             inputs: prompt,
             parameters: {
-              max_length: 800,
+              max_length: 500,
               temperature: 0.7,
               do_sample: true,
               top_p: 0.9,
-              repetition_penalty: 1.1
+              repetition_penalty: 1.1,
+              return_full_text: false
             }
           },
           {
@@ -98,7 +101,8 @@ class AIInsightsGenerator {
           }
         );
 
-        const aiResponse = response.data[0]?.generated_text || response.data[0]?.text || 'Unable to generate insight.';
+        const aiResponse = response.data[0]?.generated_text || response.data[0]?.text || response.data || 'Unable to generate insight.';
+        console.log(`Successfully generated response with model ${model}`);
         return this.parseAIResponse(aiResponse, realData, focus);
       } catch (error) {
         console.warn(`Failed to use model ${model}:`, error.message);
@@ -107,7 +111,9 @@ class AIInsightsGenerator {
       }
     }
     
-    throw lastError || new Error('All Hugging Face models failed');
+    // If all models fail, fall back to rule-based insights
+    console.warn('All Hugging Face models failed, falling back to rule-based insights');
+    return await this.generateRuleBasedInsights(realData, focus);
   }
 
   // Build comprehensive prompt for OpenAI
