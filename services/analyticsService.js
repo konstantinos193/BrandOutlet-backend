@@ -74,22 +74,39 @@ class AnalyticsService {
     const usersCollection = this.db.collection('users');
     const pageTrackingCollection = this.db.collection('pageTracking');
     
-    // Mock user data for now - replace with real user collection when available
-    const mockUserStats = {
-      totalUsers: 3421,
-      activeUsers: 1250,
-      newUsersToday: 45,
-      newUsersThisWeek: 312,
-      newUsersThisMonth: 1280,
-      userGrowthRate: 12.5,
-      churnRate: 3.2,
-      retentionRate: 96.8
-    };
-
-    // Get real page tracking data for active users
+    // Get real user data from database
+    const totalUsers = await usersCollection.countDocuments();
+    const activeUsers = await usersCollection.countDocuments({ status: 'active' });
+    
+    // Calculate date ranges
     const today = new Date();
     today.setHours(0, 0, 0, 0);
+    const weekAgo = new Date(today);
+    weekAgo.setDate(weekAgo.getDate() - 7);
+    const monthAgo = new Date(today);
+    monthAgo.setMonth(monthAgo.getMonth() - 1);
     
+    // Get new user counts
+    const newUsersToday = await usersCollection.countDocuments({ 
+      createdAt: { $gte: today } 
+    });
+    const newUsersThisWeek = await usersCollection.countDocuments({ 
+      createdAt: { $gte: weekAgo } 
+    });
+    const newUsersThisMonth = await usersCollection.countDocuments({ 
+      createdAt: { $gte: monthAgo } 
+    });
+    
+    // Calculate growth rate (month over month)
+    const twoMonthsAgo = new Date(today);
+    twoMonthsAgo.setMonth(twoMonthsAgo.getMonth() - 2);
+    const usersLastMonth = await usersCollection.countDocuments({ 
+      createdAt: { $gte: twoMonthsAgo, $lt: monthAgo } 
+    });
+    const userGrowthRate = usersLastMonth > 0 ? 
+      ((newUsersThisMonth - usersLastMonth) / usersLastMonth * 100).toFixed(1) : 0;
+
+    // Get real page tracking data for active users
     const activeUsersTodayResult = await pageTrackingCollection.aggregate([
       { $match: { timestamp: { $gte: today } } },
       { $group: { _id: '$sessionId' } }
@@ -97,7 +114,14 @@ class AnalyticsService {
     const activeUsersToday = activeUsersTodayResult.map(item => item._id);
 
     return {
-      ...mockUserStats,
+      totalUsers,
+      activeUsers,
+      newUsersToday,
+      newUsersThisWeek,
+      newUsersThisMonth,
+      userGrowthRate: parseFloat(userGrowthRate),
+      churnRate: 0, // Would need historical data to calculate
+      retentionRate: 100, // Would need historical data to calculate
       activeUsersToday: activeUsersToday.length,
       realActiveUsers: activeUsersToday.length
     };
