@@ -7,7 +7,13 @@ class AnalyticsService {
 
   async init() {
     if (!this.db) {
-      this.db = getDB();
+      try {
+        this.db = getDB();
+        console.log('✅ Analytics service database connection established');
+      } catch (error) {
+        console.error('❌ Failed to connect to database in analytics service:', error);
+        throw error;
+      }
     }
   }
 
@@ -40,43 +46,66 @@ class AnalyticsService {
 
   // Product-related metrics
   async getProductMetrics() {
-    const productsCollection = this.db.collection('products');
-    
-    const [
-      totalProducts,
-      activeProducts,
-      verifiedProducts,
-      pendingVerifications,
-      lowStockProducts,
-      topCategories
-    ] = await Promise.all([
-      productsCollection.countDocuments(),
-      productsCollection.countDocuments({ isActive: true }),
-      productsCollection.countDocuments({ 'authenticity.isVerified': true }),
-      productsCollection.countDocuments({ 'authenticity.isVerified': false, isActive: true }),
-      productsCollection.countDocuments({ stock: { $lte: 5 }, isActive: true }),
-      this.getTopCategories()
-    ]);
+    try {
+      const productsCollection = this.db.collection('products');
+      
+      console.log('📊 Fetching product metrics from database...');
+      
+      const [
+        totalProducts,
+        activeProducts,
+        verifiedProducts,
+        pendingVerifications,
+        lowStockProducts,
+        topCategories
+      ] = await Promise.all([
+        productsCollection.countDocuments(),
+        productsCollection.countDocuments({ isActive: true }),
+        productsCollection.countDocuments({ 'authenticity.isVerified': true }),
+        productsCollection.countDocuments({ 'authenticity.isVerified': false, isActive: true }),
+        productsCollection.countDocuments({ stock: { $lte: 5 }, isActive: true }),
+        this.getTopCategories()
+      ]);
 
-    return {
-      totalProducts,
-      activeProducts,
-      verifiedProducts,
-      pendingVerifications,
-      lowStockProducts,
-      topCategories,
-      verificationRate: totalProducts > 0 ? ((verifiedProducts / totalProducts) * 100).toFixed(1) : 0
-    };
+      console.log(`📊 Found ${totalProducts} total products, ${activeProducts} active products`);
+
+      return {
+        totalProducts,
+        activeProducts,
+        verifiedProducts,
+        pendingVerifications,
+        lowStockProducts,
+        topCategories,
+        verificationRate: totalProducts > 0 ? ((verifiedProducts / totalProducts) * 100).toFixed(1) : 0
+      };
+    } catch (error) {
+      console.error('❌ Error fetching product metrics:', error);
+      // Return default values if database query fails
+      return {
+        totalProducts: 0,
+        activeProducts: 0,
+        verifiedProducts: 0,
+        pendingVerifications: 0,
+        lowStockProducts: 0,
+        topCategories: [],
+        verificationRate: 0
+      };
+    }
   }
 
   // User-related metrics
   async getUserMetrics() {
-    const usersCollection = this.db.collection('users');
-    const pageTrackingCollection = this.db.collection('pageTracking');
-    
-    // Get real user data from database
-    const totalUsers = await usersCollection.countDocuments();
-    const activeUsers = await usersCollection.countDocuments({ status: 'active' });
+    try {
+      const usersCollection = this.db.collection('users');
+      const pageTrackingCollection = this.db.collection('pageTracking');
+      
+      console.log('📊 Fetching user metrics from database...');
+      
+      // Get real user data from database
+      const totalUsers = await usersCollection.countDocuments();
+      const activeUsers = await usersCollection.countDocuments({ status: 'active' });
+      
+      console.log(`📊 Found ${totalUsers} total users, ${activeUsers} active users`);
     
     // Calculate date ranges
     const today = new Date();
@@ -113,18 +142,34 @@ class AnalyticsService {
     ]).toArray();
     const activeUsersToday = activeUsersTodayResult.map(item => item._id);
 
-    return {
-      totalUsers,
-      activeUsers,
-      newUsersToday,
-      newUsersThisWeek,
-      newUsersThisMonth,
-      userGrowthRate: parseFloat(userGrowthRate),
-      churnRate: 0, // Would need historical data to calculate
-      retentionRate: 100, // Would need historical data to calculate
-      activeUsersToday: activeUsersToday.length,
-      realActiveUsers: activeUsersToday.length
-    };
+      return {
+        totalUsers,
+        activeUsers,
+        newUsersToday,
+        newUsersThisWeek,
+        newUsersThisMonth,
+        userGrowthRate: parseFloat(userGrowthRate),
+        churnRate: 0, // Would need historical data to calculate
+        retentionRate: 100, // Would need historical data to calculate
+        activeUsersToday: activeUsersToday.length,
+        realActiveUsers: activeUsersToday.length
+      };
+    } catch (error) {
+      console.error('❌ Error fetching user metrics:', error);
+      // Return default values if database query fails
+      return {
+        totalUsers: 0,
+        activeUsers: 0,
+        newUsersToday: 0,
+        newUsersThisWeek: 0,
+        newUsersThisMonth: 0,
+        userGrowthRate: 0,
+        churnRate: 0,
+        retentionRate: 100,
+        activeUsersToday: 0,
+        realActiveUsers: 0
+      };
+    }
   }
 
   // Sales and revenue metrics

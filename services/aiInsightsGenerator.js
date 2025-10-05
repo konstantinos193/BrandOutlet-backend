@@ -16,14 +16,18 @@ class AIInsightsGenerator {
   async generateAIInsights(realData, focus = 'all') {
     try {
       if (this.useOpenAI) {
+        console.log('Using OpenAI for AI insights generation');
         return await this.generateWithOpenAI(realData, focus);
       } else if (this.useHuggingFace) {
+        console.log('Using Hugging Face for AI insights generation');
         return await this.generateWithHuggingFace(realData, focus);
       } else {
+        console.log('No AI API keys available, using rule-based insights');
         return await this.generateRuleBasedInsights(realData, focus);
       }
     } catch (error) {
       console.error('Error generating AI insights:', error);
+      console.log('Falling back to rule-based insights due to error');
       return await this.generateRuleBasedInsights(realData, focus);
     }
   }
@@ -66,12 +70,12 @@ class AIInsightsGenerator {
   async generateWithHuggingFace(realData, focus) {
     const prompt = this.buildHuggingFacePrompt(realData, focus);
     
-    // Try multiple working models in order of preference
+    // Try multiple working models in order of preference (updated for 2024)
     const models = [
-      'microsoft/DialoGPT-medium',
-      'facebook/blenderbot-400M-distill',
-      'gpt2',
-      'distilgpt2'
+      'gpt2',                       // Most reliable and widely available
+      'distilgpt2',                 // Smaller, faster GPT-2 variant
+      'microsoft/DialoGPT-medium',  // Keep as fallback
+      'facebook/blenderbot-400M-distill'  // Last resort
     ];
     
     let lastError = null;
