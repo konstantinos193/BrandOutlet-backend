@@ -1,6 +1,7 @@
 const express = require('express');
 const router = express.Router();
-const searchService = require('../services/searchService');
+const Product = require('../models/Product');
+const { getDB } = require('../config/database');
 
 // GET /api/products - Get products with filtering, sorting, and pagination
 router.get('/', async (req, res) => {
@@ -21,40 +22,131 @@ router.get('/', async (req, res) => {
       limit = 20
     } = req.query;
 
-    // Convert query parameters to search filters
-    const filters = {
-      searchTerm: search,
-      brands: brands ? brands.split(',') : undefined,
-      categories: categories ? categories.split(',') : undefined,
-      minPrice: minPrice ? parseFloat(minPrice) : undefined,
-      maxPrice: maxPrice ? parseFloat(maxPrice) : undefined,
-      conditions: condition ? condition.split(',') : undefined,
-      sizes: size ? size.split(',') : undefined,
-      colors: color ? color.split(',') : undefined,
-      availability: inStock === 'true' ? 'in_stock' : inStock === 'false' ? 'out_of_stock' : undefined,
-      sortBy,
-      sortOrder,
-      page: parseInt(page),
-      limit: parseInt(limit)
-    };
+    console.log('🛍️ Fetching products from database');
 
-    const result = await searchService.searchProducts(filters);
+    // Build query filters
+    let query = { isActive: true };
+
+    // Search filter
+    if (search) {
+      query.$or = [
+        { name: { $regex: search, $options: 'i' } },
+        { description: { $regex: search, $options: 'i' } },
+        { 'brand.name': { $regex: search, $options: 'i' } },
+        { category: { $regex: search, $options: 'i' } }
+      ];
+    }
+
+    // Brand filter
+    if (brands) {
+      const brandArray = brands.split(',');
+      query['brand.name'] = { $in: brandArray };
+    }
+
+    // Category filter
+    if (categories) {
+      const categoryArray = categories.split(',');
+      query.category = { $in: categoryArray };
+    }
+
+    // Price range filter
+    if (minPrice || maxPrice) {
+      query.price = {};
+      if (minPrice) query.price.$gte = parseFloat(minPrice);
+      if (maxPrice) query.price.$lte = parseFloat(maxPrice);
+    }
+
+    // Condition filter
+    if (condition) {
+      query.condition = condition;
+    }
+
+    // Size filter
+    if (size) {
+      query.sizes = { $in: [size] };
+    }
+
+    // Color filter
+    if (color) {
+      query.colors = { $in: [color] };
+    }
+
+    // Stock filter
+    if (inStock === 'true') {
+      query.stock = { $gt: 0 };
+    }
+
+    // Calculate pagination
+    const skip = (parseInt(page) - 1) * parseInt(limit);
+
+    // Build sort object
+    const sort = {};
+    sort[sortBy] = sortOrder === 'desc' ? -1 : 1;
+
+    // Get products from database
+    const products = await Product.find(query)
+      .populate('brand', 'name logo')
+      .sort(sort)
+      .skip(skip)
+      .limit(parseInt(limit));
+
+    // Get total count for pagination
+    const total = await Product.countDocuments(query);
+
+    // Transform products to match expected format
+    const transformedProducts = products.map(product => ({
+      id: product._id.toString(),
+      name: product.name,
+      brand: {
+        name: product.brand?.name || 'Unknown',
+        logo: product.brand?.logo || '/brands/default.png'
+      },
+      price: product.price || 0,
+      originalPrice: product.originalPrice || product.price || 0,
+      discount: product.discount || 0,
+      images: product.images || ['/products/placeholder.jpg'],
+      category: product.category || 'Other',
+      condition: product.condition || 'New',
+      sizes: product.sizes || [],
+      colors: product.colors || [],
+      stock: product.stock || 0,
+      description: product.description || '',
+      features: product.features || [],
+      isActive: product.isActive !== false,
+      isFeatured: product.isFeatured || false,
+      rating: product.rating || 0,
+      reviewCount: product.reviewCount || 0,
+      salesCount: product.salesCount || 0,
+      createdAt: product.createdAt || new Date(),
+      updatedAt: product.updatedAt || new Date()
+    }));
 
     res.json({
       success: true,
       data: {
-        products: result.products,
-        total: result.total,
-        page: result.page,
-        limit: result.limit,
-        totalPages: result.totalPages,
-        facets: result.facets,
-        appliedFilters: result.appliedFilters
-      },
-      timestamp: new Date().toISOString()
+        products: transformedProducts,
+        pagination: {
+          page: parseInt(page),
+          limit: parseInt(limit),
+          total,
+          pages: Math.ceil(total / parseInt(limit))
+        },
+        filters: {
+          search,
+          brands: brands ? brands.split(',') : [],
+          categories: categories ? categories.split(',') : [],
+          minPrice: minPrice ? parseFloat(minPrice) : null,
+          maxPrice: maxPrice ? parseFloat(maxPrice) : null,
+          condition,
+          size,
+          color,
+          inStock: inStock === 'true'
+        }
+      }
     });
+
   } catch (error) {
-    console.error('Error fetching products:', error);
+    console.error('Error fetching products from database:', error);
     res.status(500).json({
       success: false,
       error: 'Failed to fetch products',
@@ -63,60 +155,56 @@ router.get('/', async (req, res) => {
   }
 });
 
-// GET /api/products/facets - Get available facets for filtering
-router.get('/facets', async (req, res) => {
-  try {
-    const { category } = req.query;
-    
-    const mockProducts = searchService.generateMockProducts();
-    let filteredProducts = mockProducts;
-    
-    if (category) {
-      filteredProducts = mockProducts.filter(product => 
-        product.category.toLowerCase() === category.toLowerCase()
-      );
-    }
-    
-    const facets = searchService.generateFacets(filteredProducts, {});
-    
-    res.json({
-      success: true,
-      data: facets,
-      timestamp: new Date().toISOString()
-    });
-  } catch (error) {
-    console.error('Error getting product facets:', error);
-    res.status(500).json({
-      success: false,
-      error: 'Failed to get product facets',
-      message: error.message
-    });
-  }
-});
-
-// GET /api/products/:id - Get single product by ID
+// GET /api/products/:id - Get product by ID
 router.get('/:id', async (req, res) => {
   try {
     const { id } = req.params;
-    
-    const mockProducts = searchService.generateMockProducts();
-    const product = mockProducts.find(p => p.id === id);
-    
+
+    console.log(`🛍️ Fetching product ${id} from database`);
+
+    const product = await Product.findById(id).populate('brand', 'name logo');
+
     if (!product) {
       return res.status(404).json({
         success: false,
-        error: 'Product not found',
-        message: `Product with ID ${id} does not exist`
+        error: 'Product not found'
       });
     }
-    
+
+    const transformedProduct = {
+      id: product._id.toString(),
+      name: product.name,
+      brand: {
+        name: product.brand?.name || 'Unknown',
+        logo: product.brand?.logo || '/brands/default.png'
+      },
+      price: product.price || 0,
+      originalPrice: product.originalPrice || product.price || 0,
+      discount: product.discount || 0,
+      images: product.images || ['/products/placeholder.jpg'],
+      category: product.category || 'Other',
+      condition: product.condition || 'New',
+      sizes: product.sizes || [],
+      colors: product.colors || [],
+      stock: product.stock || 0,
+      description: product.description || '',
+      features: product.features || [],
+      isActive: product.isActive !== false,
+      isFeatured: product.isFeatured || false,
+      rating: product.rating || 0,
+      reviewCount: product.reviewCount || 0,
+      salesCount: product.salesCount || 0,
+      createdAt: product.createdAt || new Date(),
+      updatedAt: product.updatedAt || new Date()
+    };
+
     res.json({
       success: true,
-      data: product,
-      timestamp: new Date().toISOString()
+      data: transformedProduct
     });
+
   } catch (error) {
-    console.error('Error fetching product:', error);
+    console.error('Error fetching product from database:', error);
     res.status(500).json({
       success: false,
       error: 'Failed to fetch product',
@@ -129,20 +217,45 @@ router.get('/:id', async (req, res) => {
 router.get('/featured', async (req, res) => {
   try {
     const { limit = 8 } = req.query;
-    
-    const mockProducts = searchService.generateMockProducts();
-    const featuredProducts = mockProducts
-      .filter(product => product.rating >= 4.5)
-      .sort((a, b) => b.rating - a.rating)
-      .slice(0, parseInt(limit));
-    
+
+    console.log('⭐ Fetching featured products from database');
+
+    const products = await Product.find({ 
+      isActive: true, 
+      isFeatured: true 
+    })
+      .populate('brand', 'name logo')
+      .sort({ createdAt: -1 })
+      .limit(parseInt(limit));
+
+    const transformedProducts = products.map(product => ({
+      id: product._id.toString(),
+      name: product.name,
+      brand: {
+        name: product.brand?.name || 'Unknown',
+        logo: product.brand?.logo || '/brands/default.png'
+      },
+      price: product.price || 0,
+      originalPrice: product.originalPrice || product.price || 0,
+      discount: product.discount || 0,
+      images: product.images || ['/products/placeholder.jpg'],
+      category: product.category || 'Other',
+      condition: product.condition || 'New',
+      rating: product.rating || 0,
+      reviewCount: product.reviewCount || 0,
+      salesCount: product.salesCount || 0
+    }));
+
     res.json({
       success: true,
-      data: featuredProducts,
-      timestamp: new Date().toISOString()
+      data: {
+        products: transformedProducts,
+        total: transformedProducts.length
+      }
     });
+
   } catch (error) {
-    console.error('Error fetching featured products:', error);
+    console.error('Error fetching featured products from database:', error);
     res.status(500).json({
       success: false,
       error: 'Failed to fetch featured products',
@@ -155,23 +268,101 @@ router.get('/featured', async (req, res) => {
 router.get('/trending', async (req, res) => {
   try {
     const { limit = 8 } = req.query;
-    
-    const mockProducts = searchService.generateMockProducts();
-    const trendingProducts = mockProducts
-      .filter(product => product.reviewCount >= 50)
-      .sort((a, b) => b.reviewCount - a.reviewCount)
-      .slice(0, parseInt(limit));
-    
+
+    console.log('🔥 Fetching trending products from database');
+
+    const products = await Product.find({ 
+      isActive: true 
+    })
+      .populate('brand', 'name logo')
+      .sort({ salesCount: -1, rating: -1 })
+      .limit(parseInt(limit));
+
+    const transformedProducts = products.map(product => ({
+      id: product._id.toString(),
+      name: product.name,
+      brand: {
+        name: product.brand?.name || 'Unknown',
+        logo: product.brand?.logo || '/brands/default.png'
+      },
+      price: product.price || 0,
+      originalPrice: product.originalPrice || product.price || 0,
+      discount: product.discount || 0,
+      images: product.images || ['/products/placeholder.jpg'],
+      category: product.category || 'Other',
+      condition: product.condition || 'New',
+      rating: product.rating || 0,
+      reviewCount: product.reviewCount || 0,
+      salesCount: product.salesCount || 0
+    }));
+
     res.json({
       success: true,
-      data: trendingProducts,
-      timestamp: new Date().toISOString()
+      data: {
+        products: transformedProducts,
+        total: transformedProducts.length
+      }
     });
+
   } catch (error) {
-    console.error('Error fetching trending products:', error);
+    console.error('Error fetching trending products from database:', error);
     res.status(500).json({
       success: false,
       error: 'Failed to fetch trending products',
+      message: error.message
+    });
+  }
+});
+
+// GET /api/products/categories - Get all categories
+router.get('/categories', async (req, res) => {
+  try {
+    console.log('📂 Fetching product categories from database');
+
+    const categories = await Product.distinct('category', { isActive: true });
+
+    res.json({
+      success: true,
+      data: {
+        categories: categories.filter(cat => cat).map(category => ({
+          name: category,
+          count: 0 // Would need to calculate this separately
+        }))
+      }
+    });
+
+  } catch (error) {
+    console.error('Error fetching categories from database:', error);
+    res.status(500).json({
+      success: false,
+      error: 'Failed to fetch categories',
+      message: error.message
+    });
+  }
+});
+
+// GET /api/products/brands - Get all brands
+router.get('/brands', async (req, res) => {
+  try {
+    console.log('🏷️ Fetching product brands from database');
+
+    const brands = await Product.distinct('brand.name', { isActive: true });
+
+    res.json({
+      success: true,
+      data: {
+        brands: brands.filter(brand => brand).map(brand => ({
+          name: brand,
+          count: 0 // Would need to calculate this separately
+        }))
+      }
+    });
+
+  } catch (error) {
+    console.error('Error fetching brands from database:', error);
+    res.status(500).json({
+      success: false,
+      error: 'Failed to fetch brands',
       message: error.message
     });
   }

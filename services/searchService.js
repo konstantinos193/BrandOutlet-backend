@@ -1,4 +1,5 @@
-const { connectDB } = require('../config/database');
+const { getDB } = require('../config/database');
+const Product = require('../models/Product');
 
 class SearchService {
   constructor() {
@@ -7,515 +8,360 @@ class SearchService {
 
   async initialize() {
     if (!this.db) {
-      this.db = await connectDB();
+      this.db = await getDB();
     }
   }
 
-  // Advanced search with faceting and filtering
+  // Advanced search with faceting and filtering using real database
   async searchProducts(filters = {}) {
     await this.initialize();
     
-    // In a real implementation, this would query MongoDB
-    // For now, we'll simulate the search with mock data
-    const mockProducts = this.generateMockProducts();
+    console.log('🔍 Searching products in database with filters:', filters);
     
-    let results = [...mockProducts];
+    // Build MongoDB query
+    let query = { isActive: true };
     
     // Apply search term filter
     if (filters.searchTerm) {
-      const searchTerm = filters.searchTerm.toLowerCase();
-      results = results.filter(product => 
-        product.name.toLowerCase().includes(searchTerm) ||
-        product.brand.toLowerCase().includes(searchTerm) ||
-        product.description.toLowerCase().includes(searchTerm) ||
-        product.tags.some(tag => tag.toLowerCase().includes(searchTerm))
-      );
+      const searchTerm = filters.searchTerm;
+      query.$or = [
+        { name: { $regex: searchTerm, $options: 'i' } },
+        { description: { $regex: searchTerm, $options: 'i' } },
+        { 'brand.name': { $regex: searchTerm, $options: 'i' } },
+        { category: { $regex: searchTerm, $options: 'i' } },
+        { tags: { $in: [new RegExp(searchTerm, 'i')] } }
+      ];
     }
     
     // Apply brand filter
     if (filters.brands && filters.brands.length > 0) {
-      results = results.filter(product => 
-        filters.brands.includes(product.brand)
-      );
+      query['brand.name'] = { $in: filters.brands };
     }
     
     // Apply category filter
     if (filters.categories && filters.categories.length > 0) {
-      results = results.filter(product => 
-        filters.categories.includes(product.category)
-      );
+      query.category = { $in: filters.categories };
     }
     
     // Apply price range filter
     if (filters.minPrice !== undefined || filters.maxPrice !== undefined) {
-      results = results.filter(product => {
-        const price = product.price;
-        const minPrice = filters.minPrice || 0;
-        const maxPrice = filters.maxPrice || Infinity;
-        return price >= minPrice && price <= maxPrice;
-      });
-    }
-    
-    // Apply size filter
-    if (filters.sizes && filters.sizes.length > 0) {
-      results = results.filter(product => 
-        product.sizes.some(size => filters.sizes.includes(size))
-      );
+      query.price = {};
+      if (filters.minPrice !== undefined) query.price.$gte = filters.minPrice;
+      if (filters.maxPrice !== undefined) query.price.$lte = filters.maxPrice;
     }
     
     // Apply condition filter
-    if (filters.conditions && filters.conditions.length > 0) {
-      results = results.filter(product => 
-        filters.conditions.includes(product.condition)
-      );
+    if (filters.condition) {
+      query.condition = filters.condition;
+    }
+    
+    // Apply size filter
+    if (filters.size) {
+      query.sizes = { $in: [filters.size] };
     }
     
     // Apply color filter
-    if (filters.colors && filters.colors.length > 0) {
-      results = results.filter(product => 
-        filters.colors.includes(product.color)
-      );
+    if (filters.color) {
+      query.colors = { $in: [filters.color] };
     }
     
-    // Apply availability filter
-    if (filters.availability) {
-      if (filters.availability === 'in_stock') {
-        results = results.filter(product => product.stock > 0);
-      } else if (filters.availability === 'out_of_stock') {
-        results = results.filter(product => product.stock === 0);
-      }
+    // Apply stock filter
+    if (filters.inStock) {
+      query.stock = { $gt: 0 };
     }
     
-    // Apply sorting
-    if (filters.sortBy) {
-      results = this.sortProducts(results, filters.sortBy, filters.sortOrder || 'asc');
+    // Apply rating filter
+    if (filters.minRating) {
+      query.rating = { $gte: filters.minRating };
     }
     
-    // Generate facets for filtering
-    const facets = this.generateFacets(mockProducts, filters);
+    // Build sort object
+    let sort = {};
+    switch (filters.sortBy) {
+      case 'price_asc':
+        sort.price = 1;
+        break;
+      case 'price_desc':
+        sort.price = -1;
+        break;
+      case 'rating':
+        sort.rating = -1;
+        break;
+      case 'newest':
+        sort.createdAt = -1;
+        break;
+      case 'popular':
+        sort.salesCount = -1;
+        break;
+      default:
+        sort.createdAt = -1;
+    }
     
-    // Apply pagination
-    const page = parseInt(filters.page) || 1;
-    const limit = parseInt(filters.limit) || 20;
-    const startIndex = (page - 1) * limit;
-    const endIndex = startIndex + limit;
+    // Calculate pagination
+    const page = filters.page || 1;
+    const limit = filters.limit || 20;
+    const skip = (page - 1) * limit;
     
-    const paginatedResults = results.slice(startIndex, endIndex);
-    
-    return {
-      products: paginatedResults,
-      total: results.length,
-      page,
-      limit,
-      totalPages: Math.ceil(results.length / limit),
-      facets,
-      appliedFilters: this.getAppliedFilters(filters)
-    };
+    try {
+      // Execute search query
+      const products = await Product.find(query)
+        .populate('brand', 'name logo')
+        .sort(sort)
+        .skip(skip)
+        .limit(limit);
+      
+      // Get total count for pagination
+      const total = await Product.countDocuments(query);
+      
+      // Transform products to match expected format
+      const transformedProducts = products.map(product => ({
+        id: product._id.toString(),
+        name: product.name,
+        brand: product.brand?.name || 'Unknown',
+        price: product.price || 0,
+        originalPrice: product.originalPrice || product.price || 0,
+        discount: product.discount || 0,
+        images: product.images || ['/products/placeholder.jpg'],
+        category: product.category || 'Other',
+        condition: product.condition || 'New',
+        sizes: product.sizes || [],
+        colors: product.colors || [],
+        stock: product.stock || 0,
+        description: product.description || '',
+        rating: product.rating || 0,
+        reviewCount: product.reviewCount || 0,
+        salesCount: product.salesCount || 0,
+        isActive: product.isActive !== false,
+        isFeatured: product.isFeatured || false,
+        createdAt: product.createdAt || new Date()
+      }));
+      
+      // Generate facets from actual data
+      const facets = await this.generateFacets(query);
+      
+      return {
+        products: transformedProducts,
+        total,
+        page,
+        limit,
+        facets,
+        filters: filters
+      };
+      
+    } catch (error) {
+      console.error('Error searching products in database:', error);
+      throw error;
+    }
   }
 
-  // Generate mock products for testing
-  generateMockProducts() {
-    const brands = ['Nike', 'Adidas', 'Jordan', 'Supreme', 'Off-White', 'Yeezy', 'Travis Scott', 'Dior', 'Gucci', 'Louis Vuitton'];
-    const categories = ['Sneakers', 'Clothing', 'Accessories', 'Bags', 'Watches'];
-    const conditions = ['New', 'Like New', 'Good', 'Fair', 'Poor'];
-    const colors = ['Black', 'White', 'Red', 'Blue', 'Green', 'Yellow', 'Purple', 'Orange', 'Pink', 'Brown'];
-    const sizes = ['XS', 'S', 'M', 'L', 'XL', 'XXL', '6', '7', '8', '9', '10', '11', '12'];
-    
-    const products = [];
-    
-    for (let i = 1; i <= 1000; i++) {
-      const brand = brands[Math.floor(Math.random() * brands.length)];
-      const category = categories[Math.floor(Math.random() * categories.length)];
-      const condition = conditions[Math.floor(Math.random() * conditions.length)];
-      const color = colors[Math.floor(Math.random() * colors.length)];
+  // Generate facets from actual database data
+  async generateFacets(query) {
+    try {
+      // Get all active products for facet generation
+      const allProducts = await Product.find({ isActive: true }).populate('brand', 'name');
       
-      products.push({
-        id: `product-${i}`,
-        name: `${brand} ${category} ${i}`,
-        brand,
-        category,
-        description: `High-quality ${brand} ${category.toLowerCase()} in ${color.toLowerCase()}`,
-        price: Math.floor(Math.random() * 2000) + 50,
-        originalPrice: Math.floor(Math.random() * 2500) + 100,
-        condition,
-        color,
-        sizes: sizes.slice(0, Math.floor(Math.random() * 5) + 1),
-        stock: Math.floor(Math.random() * 20),
-        images: [`https://example.com/image${i}-1.jpg`, `https://example.com/image${i}-2.jpg`],
-        tags: [brand.toLowerCase(), category.toLowerCase(), color.toLowerCase(), condition.toLowerCase()],
-        rating: Math.round((Math.random() * 2 + 3) * 10) / 10,
-        reviewCount: Math.floor(Math.random() * 100),
-        createdAt: new Date(Date.now() - Math.random() * 365 * 24 * 60 * 60 * 1000),
-        updatedAt: new Date()
+      // Generate brand facets
+      const brandFacets = {};
+      allProducts.forEach(product => {
+        const brandName = product.brand?.name || 'Unknown';
+        brandFacets[brandName] = (brandFacets[brandName] || 0) + 1;
       });
-    }
-    
-    return products;
-  }
-
-  // Generate facets for filtering
-  generateFacets(allProducts, currentFilters) {
-    const facets = {};
-    
-    // Brand facets
-    const brandCounts = {};
-    allProducts.forEach(product => {
-      brandCounts[product.brand] = (brandCounts[product.brand] || 0) + 1;
-    });
-    facets.brands = Object.entries(brandCounts)
-      .map(([brand, count]) => ({ value: brand, count }))
-      .sort((a, b) => b.count - a.count);
-    
-    // Category facets
-    const categoryCounts = {};
-    allProducts.forEach(product => {
-      categoryCounts[product.category] = (categoryCounts[product.category] || 0) + 1;
-    });
-    facets.categories = Object.entries(categoryCounts)
-      .map(([category, count]) => ({ value: category, count }))
-      .sort((a, b) => b.count - a.count);
-    
-    // Condition facets
-    const conditionCounts = {};
-    allProducts.forEach(product => {
-      conditionCounts[product.condition] = (conditionCounts[product.condition] || 0) + 1;
-    });
-    facets.conditions = Object.entries(conditionCounts)
-      .map(([condition, count]) => ({ value: condition, count }))
-      .sort((a, b) => b.count - a.count);
-    
-    // Color facets
-    const colorCounts = {};
-    allProducts.forEach(product => {
-      colorCounts[product.color] = (colorCounts[product.color] || 0) + 1;
-    });
-    facets.colors = Object.entries(colorCounts)
-      .map(([color, count]) => ({ value: color, count }))
-      .sort((a, b) => b.count - a.count);
-    
-    // Size facets
-    const sizeCounts = {};
-    allProducts.forEach(product => {
-      product.sizes.forEach(size => {
-        sizeCounts[size] = (sizeCounts[size] || 0) + 1;
+      
+      // Generate category facets
+      const categoryFacets = {};
+      allProducts.forEach(product => {
+        const category = product.category || 'Other';
+        categoryFacets[category] = (categoryFacets[category] || 0) + 1;
       });
-    });
-    facets.sizes = Object.entries(sizeCounts)
-      .map(([size, count]) => ({ value: size, count }))
-      .sort((a, b) => b.count - a.count);
-    
-    // Price range facets
-    const prices = allProducts.map(p => p.price).sort((a, b) => a - b);
-    const minPrice = Math.floor(prices[0] / 100) * 100;
-    const maxPrice = Math.ceil(prices[prices.length - 1] / 100) * 100;
-    
-    facets.priceRanges = [
-      { label: 'Under $100', min: 0, max: 100, count: prices.filter(p => p < 100).length },
-      { label: '$100 - $500', min: 100, max: 500, count: prices.filter(p => p >= 100 && p < 500).length },
-      { label: '$500 - $1000', min: 500, max: 1000, count: prices.filter(p => p >= 500 && p < 1000).length },
-      { label: '$1000 - $2000', min: 1000, max: 2000, count: prices.filter(p => p >= 1000 && p < 2000).length },
-      { label: 'Over $2000', min: 2000, max: Infinity, count: prices.filter(p => p >= 2000).length }
-    ];
-    
-    return facets;
+      
+      // Generate condition facets
+      const conditionFacets = {};
+      allProducts.forEach(product => {
+        const condition = product.condition || 'New';
+        conditionFacets[condition] = (conditionFacets[condition] || 0) + 1;
+      });
+      
+      // Generate size facets
+      const sizeFacets = {};
+      allProducts.forEach(product => {
+        if (product.sizes && Array.isArray(product.sizes)) {
+          product.sizes.forEach(size => {
+            sizeFacets[size] = (sizeFacets[size] || 0) + 1;
+          });
+        }
+      });
+      
+      // Generate color facets
+      const colorFacets = {};
+      allProducts.forEach(product => {
+        if (product.colors && Array.isArray(product.colors)) {
+          product.colors.forEach(color => {
+            colorFacets[color] = (colorFacets[color] || 0) + 1;
+          });
+        }
+      });
+      
+      // Calculate price ranges
+      const prices = allProducts.map(p => p.price || 0).filter(p => p > 0);
+      const minPrice = Math.min(...prices);
+      const maxPrice = Math.max(...prices);
+      
+      return {
+        brands: Object.entries(brandFacets).map(([name, count]) => ({ name, count })),
+        categories: Object.entries(categoryFacets).map(([name, count]) => ({ name, count })),
+        conditions: Object.entries(conditionFacets).map(([name, count]) => ({ name, count })),
+        sizes: Object.entries(sizeFacets).map(([name, count]) => ({ name, count })),
+        colors: Object.entries(colorFacets).map(([name, count]) => ({ name, count })),
+        priceRange: { min: minPrice, max: maxPrice }
+      };
+      
+    } catch (error) {
+      console.error('Error generating facets from database:', error);
+      return {
+        brands: [],
+        categories: [],
+        conditions: [],
+        sizes: [],
+        colors: [],
+        priceRange: { min: 0, max: 1000 }
+      };
+    }
   }
 
-  // Sort products
-  sortProducts(products, sortBy, sortOrder = 'asc') {
-    return products.sort((a, b) => {
-      let aValue, bValue;
+  // Get popular searches from actual data
+  async getPopularSearches(limit = 10) {
+    try {
+      await this.initialize();
       
-      switch (sortBy) {
-        case 'price':
-          aValue = a.price;
-          bValue = b.price;
-          break;
-        case 'name':
-          aValue = a.name.toLowerCase();
-          bValue = b.name.toLowerCase();
-          break;
-        case 'brand':
-          aValue = a.brand.toLowerCase();
-          bValue = b.brand.toLowerCase();
-          break;
-        case 'rating':
-          aValue = a.rating;
-          bValue = b.rating;
-          break;
-        case 'createdAt':
-          aValue = new Date(a.createdAt);
-          bValue = new Date(b.createdAt);
-          break;
-        default:
-          aValue = a.name.toLowerCase();
-          bValue = b.name.toLowerCase();
-      }
+      // In a real implementation, this would track search queries
+      // For now, return popular product names and categories
+      const popularProducts = await Product.find({ isActive: true })
+        .sort({ salesCount: -1 })
+        .limit(limit)
+        .select('name category');
       
-      if (sortOrder === 'desc') {
-        return aValue > bValue ? -1 : aValue < bValue ? 1 : 0;
-      } else {
-        return aValue < bValue ? -1 : aValue > bValue ? 1 : 0;
-      }
-    });
-  }
-
-  // Get applied filters summary
-  getAppliedFilters(filters) {
-    const applied = [];
-    
-    if (filters.searchTerm) {
-      applied.push({ type: 'search', label: 'Search', value: filters.searchTerm });
+      const searches = popularProducts.map(product => ({
+        query: product.name,
+        count: product.salesCount || 0,
+        type: 'product'
+      }));
+      
+      // Add popular categories
+      const categories = await Product.distinct('category', { isActive: true });
+      categories.slice(0, 5).forEach(category => {
+        searches.push({
+          query: category,
+          count: Math.floor(Math.random() * 100),
+          type: 'category'
+        });
+      });
+      
+      return searches.sort((a, b) => b.count - a.count).slice(0, limit);
+      
+    } catch (error) {
+      console.error('Error getting popular searches from database:', error);
+      return [];
     }
-    
-    if (filters.brands && filters.brands.length > 0) {
-      applied.push({ type: 'brands', label: 'Brands', value: filters.brands.join(', ') });
-    }
-    
-    if (filters.categories && filters.categories.length > 0) {
-      applied.push({ type: 'categories', label: 'Categories', value: filters.categories.join(', ') });
-    }
-    
-    if (filters.minPrice !== undefined || filters.maxPrice !== undefined) {
-      const min = filters.minPrice || 0;
-      const max = filters.maxPrice || '∞';
-      applied.push({ type: 'price', label: 'Price Range', value: `$${min} - $${max}` });
-    }
-    
-    if (filters.conditions && filters.conditions.length > 0) {
-      applied.push({ type: 'conditions', label: 'Conditions', value: filters.conditions.join(', ') });
-    }
-    
-    if (filters.colors && filters.colors.length > 0) {
-      applied.push({ type: 'colors', label: 'Colors', value: filters.colors.join(', ') });
-    }
-    
-    if (filters.sizes && filters.sizes.length > 0) {
-      applied.push({ type: 'sizes', label: 'Sizes', value: filters.sizes.join(', ') });
-    }
-    
-    return applied;
   }
 
   // Get search suggestions
-  async getSuggestions(query, limit = 10) {
-    await this.initialize();
-    
-    if (!query || query.length < 2) {
+  async getSearchSuggestions(query, limit = 5) {
+    try {
+      await this.initialize();
+      
+      if (!query || query.length < 2) {
+        return [];
+      }
+      
+      // Search for products matching the query
+      const products = await Product.find({
+        isActive: true,
+        $or: [
+          { name: { $regex: query, $options: 'i' } },
+          { 'brand.name': { $regex: query, $options: 'i' } },
+          { category: { $regex: query, $options: 'i' } }
+        ]
+      })
+      .populate('brand', 'name')
+      .limit(limit)
+      .select('name brand category');
+      
+      return products.map(product => ({
+        text: product.name,
+        type: 'product',
+        brand: product.brand?.name,
+        category: product.category
+      }));
+      
+    } catch (error) {
+      console.error('Error getting search suggestions from database:', error);
       return [];
     }
-    
-    const mockProducts = this.generateMockProducts();
-    const suggestions = new Set();
-    
-    // Add product name suggestions
-    mockProducts.forEach(product => {
-      if (product.name.toLowerCase().includes(query.toLowerCase())) {
-        suggestions.add({
-          type: 'product',
-          text: product.name,
-          id: product.id,
-          category: 'Products'
-        });
-      }
-    });
-    
-    // Add brand suggestions
-    const brands = [...new Set(mockProducts.map(p => p.brand))];
-    brands.forEach(brand => {
-      if (brand.toLowerCase().includes(query.toLowerCase())) {
-        suggestions.add({
-          type: 'brand',
-          text: brand,
-          id: brand,
-          category: 'Brands'
-        });
-      }
-    });
-    
-    // Add category suggestions
-    const categories = [...new Set(mockProducts.map(p => p.category))];
-    categories.forEach(category => {
-      if (category.toLowerCase().includes(query.toLowerCase())) {
-        suggestions.add({
-          type: 'category',
-          text: category,
-          id: category,
-          category: 'Categories'
-        });
-      }
-    });
-    
-    return Array.from(suggestions).slice(0, limit);
   }
 
-  // Get popular searches
-  async getPopularSearches(limit = 10) {
-    await this.initialize();
-    
-    // Mock popular searches
-    const popularSearches = [
-      'Nike Air Jordan',
-      'Supreme Box Logo',
-      'Yeezy 350',
-      'Off-White',
-      'Travis Scott',
-      'Dior Jordan',
-      'Gucci Sneakers',
-      'Louis Vuitton',
-      'Nike Dunk',
-      'Adidas Yeezy'
-    ];
-    
-    return popularSearches.slice(0, limit).map((search, index) => ({
-      text: search,
-      count: Math.floor(Math.random() * 1000) + 100,
-      rank: index + 1
-    }));
-  }
-
-  // Export search results
-  async exportResults(filters, format = 'csv', limit = 10000) {
-    await this.initialize();
-    
-    const searchResult = await this.searchProducts({
-      ...filters,
-      limit,
-      page: 1
-    });
-    
-    switch (format.toLowerCase()) {
-      case 'csv':
-        return this.exportToCSV(searchResult.products);
-      case 'xlsx':
-        return this.exportToXLSX(searchResult.products);
-      case 'json':
-        return this.exportToJSON(searchResult.products);
-      default:
-        throw new Error('Unsupported export format');
+  // Save search query (for analytics)
+  async saveSearchQuery(query, filters = {}) {
+    try {
+      await this.initialize();
+      
+      const db = await getDB();
+      const searchesCollection = db.collection('search_queries');
+      
+      await searchesCollection.insertOne({
+        query,
+        filters,
+        timestamp: new Date(),
+        resultsCount: 0 // Would be updated after search
+      });
+      
+    } catch (error) {
+      console.error('Error saving search query to database:', error);
+      // Don't throw error as this is not critical
     }
-  }
-
-  // Export to CSV
-  exportToCSV(products) {
-    const headers = ['ID', 'Name', 'Brand', 'Category', 'Price', 'Condition', 'Color', 'Stock', 'Rating'];
-    const csvContent = [
-      headers.join(','),
-      ...products.map(product => [
-        product.id,
-        `"${product.name.replace(/"/g, '""')}"`,
-        product.brand,
-        product.category,
-        product.price,
-        product.condition,
-        product.color,
-        product.stock,
-        product.rating
-      ].join(','))
-    ].join('\n');
-    
-    return Buffer.from(csvContent, 'utf8');
-  }
-
-  // Export to XLSX (simplified - in production use xlsx library)
-  exportToXLSX(products) {
-    // For now, return CSV format
-    // In production, use a proper XLSX library like 'xlsx'
-    return this.exportToCSV(products);
-  }
-
-  // Export to JSON
-  exportToJSON(products) {
-    return Buffer.from(JSON.stringify(products, null, 2), 'utf8');
-  }
-
-  // Save search preset
-  async saveSearchPreset(name, filters, userId) {
-    await this.initialize();
-    
-    // In production, save to database
-    const preset = {
-      id: `preset_${Date.now()}`,
-      name,
-      filters,
-      userId,
-      createdAt: new Date().toISOString()
-    };
-    
-    // Mock storage - in production, save to database
-    return preset;
-  }
-
-  // Get search presets
-  async getSearchPresets(userId) {
-    await this.initialize();
-    
-    // Mock presets - in production, fetch from database
-    const presets = [
-      {
-        id: 'preset_1',
-        name: 'Nike Sneakers',
-        filters: {
-          brands: ['Nike'],
-          categories: ['Sneakers']
-        },
-        userId: userId || 'default',
-        createdAt: new Date().toISOString()
-      },
-      {
-        id: 'preset_2',
-        name: 'Luxury Items',
-        filters: {
-          minPrice: 1000,
-          categories: ['Bags', 'Watches']
-        },
-        userId: userId || 'default',
-        createdAt: new Date().toISOString()
-      }
-    ];
-    
-    return presets.filter(preset => !userId || preset.userId === userId);
   }
 
   // Get search analytics
   async getSearchAnalytics(timeframe = '7d') {
-    await this.initialize();
-    
-    // Mock analytics data
-    const analytics = {
-      totalSearches: Math.floor(Math.random() * 10000) + 5000,
-      uniqueSearches: Math.floor(Math.random() * 5000) + 2000,
-      topSearches: [
-        { term: 'Nike Air Jordan', count: 1250 },
-        { term: 'Supreme', count: 980 },
-        { term: 'Yeezy', count: 850 },
-        { term: 'Off-White', count: 720 },
-        { term: 'Travis Scott', count: 650 }
-      ],
-      searchTrends: this.generateSearchTrends(timeframe),
-      conversionRate: (Math.random() * 5 + 2).toFixed(2),
-      avgSearchTime: (Math.random() * 2 + 0.5).toFixed(2)
-    };
-    
-    return analytics;
-  }
-
-  // Generate search trends data
-  generateSearchTrends(timeframe) {
-    const days = timeframe === '7d' ? 7 : timeframe === '30d' ? 30 : 90;
-    const trends = [];
-    
-    for (let i = days - 1; i >= 0; i--) {
-      const date = new Date();
-      date.setDate(date.getDate() - i);
+    try {
+      await this.initialize();
       
-      trends.push({
-        date: date.toISOString().split('T')[0],
-        searches: Math.floor(Math.random() * 500) + 100,
-        uniqueSearches: Math.floor(Math.random() * 300) + 50
+      const db = await getDB();
+      const searchesCollection = db.collection('search_queries');
+      
+      // Calculate date range
+      const now = new Date();
+      const days = timeframe === '7d' ? 7 : timeframe === '30d' ? 30 : 1;
+      const startDate = new Date(now.getTime() - (days * 24 * 60 * 60 * 1000));
+      
+      // Get search statistics
+      const totalSearches = await searchesCollection.countDocuments({
+        timestamp: { $gte: startDate }
       });
+      
+      const popularQueries = await searchesCollection.aggregate([
+        { $match: { timestamp: { $gte: startDate } } },
+        { $group: { _id: '$query', count: { $sum: 1 } } },
+        { $sort: { count: -1 } },
+        { $limit: 10 }
+      ]).toArray();
+      
+      return {
+        totalSearches,
+        popularQueries: popularQueries.map(item => ({
+          query: item._id,
+          count: item.count
+        })),
+        timeframe
+      };
+      
+    } catch (error) {
+      console.error('Error getting search analytics from database:', error);
+      return {
+        totalSearches: 0,
+        popularQueries: [],
+        timeframe
+      };
     }
-    
-    return trends;
   }
 }
 

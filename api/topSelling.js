@@ -1,286 +1,122 @@
 const express = require('express');
 const router = express.Router();
+const Product = require('../models/Product');
+const { getDB } = require('../config/database');
 
-// Mock data for top-selling products and brands
-const mockTopProducts = [
-  {
-    id: '1',
-    name: 'Air Jordan 1 Retro High OG',
-    brand: { name: 'Nike', logo: '/brands/nike.png' },
-    image: '/products/jordan1.jpg',
-    salesVolume: 45,
-    revenue: 8100,
-    margin: 1620,
-    marginPercentage: 20,
-    price: 180,
-    category: 'Sneakers',
-    condition: 'New',
-    trend: 'up',
-    trendPercentage: 15.2,
-    rank: 1
-  },
-  {
-    id: '2',
-    name: 'Supreme Box Logo Hoodie',
-    brand: { name: 'Supreme', logo: '/brands/supreme.png' },
-    image: '/products/supreme-hoodie.jpg',
-    salesVolume: 32,
-    revenue: 14400,
-    margin: 2880,
-    marginPercentage: 20,
-    price: 450,
-    category: 'Clothing',
-    condition: 'New',
-    trend: 'up',
-    trendPercentage: 8.7,
-    rank: 2
-  },
-  {
-    id: '3',
-    name: 'Louis Vuitton Neverfull MM',
-    brand: { name: 'Louis Vuitton', logo: '/brands/lv.png' },
-    image: '/products/lv-neverfull.jpg',
-    salesVolume: 18,
-    revenue: 21600,
-    margin: 4320,
-    marginPercentage: 20,
-    price: 1200,
-    category: 'Bags',
-    condition: 'Excellent',
-    trend: 'stable',
-    trendPercentage: 2.1,
-    rank: 3
-  },
-  {
-    id: '4',
-    name: 'Off-White x Nike Air Presto',
-    brand: { name: 'Off-White', logo: '/brands/offwhite.png' },
-    image: '/products/offwhite-presto.jpg',
-    salesVolume: 28,
-    revenue: 11200,
-    margin: 2240,
-    marginPercentage: 20,
-    price: 400,
-    category: 'Sneakers',
-    condition: 'New',
-    trend: 'down',
-    trendPercentage: -5.3,
-    rank: 4
-  },
-  {
-    id: '5',
-    name: 'Gucci GG Marmont Shoulder Bag',
-    brand: { name: 'Gucci', logo: '/brands/gucci.png' },
-    image: '/products/gucci-marmont.jpg',
-    salesVolume: 22,
-    revenue: 19800,
-    margin: 3960,
-    marginPercentage: 20,
-    price: 900,
-    category: 'Bags',
-    condition: 'Excellent',
-    trend: 'up',
-    trendPercentage: 12.4,
-    rank: 5
-  },
-  {
-    id: '6',
-    name: 'Yeezy Boost 350 V2',
-    brand: { name: 'Adidas', logo: '/brands/adidas.png' },
-    image: '/products/yeezy-350.jpg',
-    salesVolume: 38,
-    revenue: 15200,
-    margin: 3040,
-    marginPercentage: 20,
-    price: 400,
-    category: 'Sneakers',
-    condition: 'New',
-    trend: 'up',
-    trendPercentage: 6.8,
-    rank: 6
-  },
-  {
-    id: '7',
-    name: 'Chanel Classic Flap Bag',
-    brand: { name: 'Chanel', logo: '/brands/chanel.png' },
-    image: '/products/chanel-flap.jpg',
-    salesVolume: 12,
-    revenue: 36000,
-    margin: 7200,
-    marginPercentage: 20,
-    price: 3000,
-    category: 'Bags',
-    condition: 'Excellent',
-    trend: 'stable',
-    trendPercentage: 1.5,
-    rank: 7
-  },
-  {
-    id: '8',
-    name: 'Balenciaga Triple S',
-    brand: { name: 'Balenciaga', logo: '/brands/balenciaga.png' },
-    image: '/products/balenciaga-triple-s.jpg',
-    salesVolume: 25,
-    revenue: 12500,
-    margin: 2500,
-    marginPercentage: 20,
-    price: 500,
-    category: 'Sneakers',
-    condition: 'New',
-    trend: 'down',
-    trendPercentage: -2.1,
-    rank: 8
-  }
-];
-
-const mockTopBrands = [
-  {
-    name: 'Nike',
-    logo: '/brands/nike.png',
-    totalSales: 156,
-    totalRevenue: 45600,
-    averageMargin: 18.5,
-    productCount: 23,
-    topProduct: 'Air Jordan 1 Retro High OG',
-    trend: 'up',
-    trendPercentage: 12.3,
-    rank: 1
-  },
-  {
-    name: 'Supreme',
-    logo: '/brands/supreme.png',
-    totalSales: 89,
-    totalRevenue: 38900,
-    averageMargin: 22.1,
-    productCount: 15,
-    topProduct: 'Supreme Box Logo Hoodie',
-    trend: 'up',
-    trendPercentage: 8.7,
-    rank: 2
-  },
-  {
-    name: 'Louis Vuitton',
-    logo: '/brands/lv.png',
-    totalSales: 45,
-    totalRevenue: 67800,
-    averageMargin: 25.8,
-    productCount: 8,
-    topProduct: 'Louis Vuitton Neverfull MM',
-    trend: 'stable',
-    trendPercentage: 1.2,
-    rank: 3
-  },
-  {
-    name: 'Off-White',
-    logo: '/brands/offwhite.png',
-    totalSales: 67,
-    totalRevenue: 28900,
-    averageMargin: 19.7,
-    productCount: 12,
-    topProduct: 'Off-White x Nike Air Presto',
-    trend: 'down',
-    trendPercentage: -3.4,
-    rank: 4
-  },
-  {
-    name: 'Gucci',
-    logo: '/brands/gucci.png',
-    totalSales: 34,
-    totalRevenue: 45600,
-    averageMargin: 24.2,
-    productCount: 6,
-    topProduct: 'Gucci GG Marmont Shoulder Bag',
-    trend: 'up',
-    trendPercentage: 15.6,
-    rank: 5
-  },
-  {
-    name: 'Adidas',
-    logo: '/brands/adidas.png',
-    totalSales: 78,
-    totalRevenue: 31200,
-    averageMargin: 16.8,
-    productCount: 18,
-    topProduct: 'Yeezy Boost 350 V2',
-    trend: 'up',
-    trendPercentage: 6.8,
-    rank: 6
-  },
-  {
-    name: 'Chanel',
-    logo: '/brands/chanel.png',
-    totalSales: 28,
-    totalRevenue: 84000,
-    averageMargin: 28.5,
-    productCount: 4,
-    topProduct: 'Chanel Classic Flap Bag',
-    trend: 'stable',
-    trendPercentage: 1.5,
-    rank: 7
-  },
-  {
-    name: 'Balenciaga',
-    logo: '/brands/balenciaga.png',
-    totalSales: 42,
-    totalRevenue: 21000,
-    averageMargin: 20.0,
-    productCount: 9,
-    topProduct: 'Balenciaga Triple S',
-    trend: 'down',
-    trendPercentage: -2.1,
-    rank: 8
-  }
-];
-
-// GET /api/top-selling - Get top-selling products and brands
+// GET /api/top-selling - Get top-selling products and brands from real database
 router.get('/', async (req, res) => {
   try {
     const { limit = 10, category, brand, timeframe = '30d' } = req.query;
     
-    // Filter products based on query parameters
-    let filteredProducts = [...mockTopProducts];
-    let filteredBrands = [...mockTopBrands];
+    console.log('📊 Fetching top-selling data from database');
+    
+    // Build query filters
+    let productFilter = { isActive: true };
     
     if (category) {
-      filteredProducts = filteredProducts.filter(p => 
-        p.category.toLowerCase() === category.toLowerCase()
-      );
+      productFilter.category = new RegExp(category, 'i');
     }
     
     if (brand) {
-      filteredProducts = filteredProducts.filter(p => 
-        p.brand.name.toLowerCase() === brand.toLowerCase()
-      );
-      filteredBrands = filteredBrands.filter(b => 
-        b.name.toLowerCase() === brand.toLowerCase()
-      );
+      productFilter['brand.name'] = new RegExp(brand, 'i');
     }
     
-    // Apply limit
-    const limitedProducts = filteredProducts.slice(0, parseInt(limit));
-    const limitedBrands = filteredBrands.slice(0, parseInt(limit));
+    // Get products from database
+    const products = await Product.find(productFilter)
+      .populate('brand', 'name logo')
+      .sort({ salesCount: -1, createdAt: -1 })
+      .limit(parseInt(limit));
+    
+    // Calculate sales metrics for each product
+    const topProducts = products.map((product, index) => {
+      const salesVolume = product.salesCount || 0;
+      const revenue = salesVolume * (product.price || 0);
+      const margin = revenue * 0.2; // 20% margin assumption
+      const marginPercentage = 20;
+      
+      // Calculate trend (mock for now - would need historical data)
+      const trend = salesVolume > 10 ? 'up' : salesVolume > 5 ? 'stable' : 'down';
+      const trendPercentage = trend === 'up' ? Math.random() * 20 : trend === 'down' ? -Math.random() * 10 : Math.random() * 5;
+      
+      return {
+        id: product._id.toString(),
+        name: product.name,
+        brand: {
+          name: product.brand?.name || 'Unknown',
+          logo: product.brand?.logo || '/brands/default.png'
+        },
+        image: product.images?.[0] || '/products/placeholder.jpg',
+        salesVolume,
+        revenue: Math.round(revenue),
+        margin: Math.round(margin),
+        marginPercentage,
+        price: product.price || 0,
+        category: product.category || 'Other',
+        condition: product.condition || 'New',
+        trend,
+        trendPercentage: Math.round(trendPercentage * 10) / 10,
+        rank: index + 1
+      };
+    });
+    
+    // Get top brands by aggregating product data
+    const brandStats = {};
+    products.forEach(product => {
+      const brandName = product.brand?.name || 'Unknown';
+      if (!brandStats[brandName]) {
+        brandStats[brandName] = {
+          name: brandName,
+          logo: product.brand?.logo || '/brands/default.png',
+          totalSales: 0,
+          totalRevenue: 0,
+          productCount: 0,
+          topProduct: product.name,
+          averageMargin: 0
+        };
+      }
+      
+      const salesVolume = product.salesCount || 0;
+      const revenue = salesVolume * (product.price || 0);
+      
+      brandStats[brandName].totalSales += salesVolume;
+      brandStats[brandName].totalRevenue += revenue;
+      brandStats[brandName].productCount += 1;
+    });
+    
+    // Convert to array and sort by total sales
+    const topBrands = Object.values(brandStats)
+      .map((brand, index) => ({
+        ...brand,
+        totalRevenue: Math.round(brand.totalRevenue),
+        averageMargin: 20, // 20% margin assumption
+        trend: brand.totalSales > 50 ? 'up' : brand.totalSales > 20 ? 'stable' : 'down',
+        trendPercentage: brand.totalSales > 50 ? Math.random() * 15 : brand.totalSales > 20 ? Math.random() * 5 : -Math.random() * 5,
+        rank: index + 1
+      }))
+      .sort((a, b) => b.totalSales - a.totalSales)
+      .slice(0, parseInt(limit));
     
     // Calculate summary statistics
-    const totalProductSales = limitedProducts.reduce((sum, p) => sum + p.salesVolume, 0);
-    const totalProductRevenue = limitedProducts.reduce((sum, p) => sum + p.revenue, 0);
-    const totalBrandSales = limitedBrands.reduce((sum, b) => sum + b.totalSales, 0);
-    const totalBrandRevenue = limitedBrands.reduce((sum, b) => sum + b.totalRevenue, 0);
+    const totalProductSales = topProducts.reduce((sum, p) => sum + p.salesVolume, 0);
+    const totalProductRevenue = topProducts.reduce((sum, p) => sum + p.revenue, 0);
+    const totalBrandSales = topBrands.reduce((sum, b) => sum + b.totalSales, 0);
+    const totalBrandRevenue = topBrands.reduce((sum, b) => sum + b.totalRevenue, 0);
     
     res.json({
       success: true,
       data: {
-        products: limitedProducts,
-        brands: limitedBrands,
+        products: topProducts,
+        brands: topBrands,
         summary: {
           totalProductSales,
           totalProductRevenue,
           totalBrandSales,
           totalBrandRevenue,
-          averageProductMargin: limitedProducts.length > 0 
-            ? (limitedProducts.reduce((sum, p) => sum + p.marginPercentage, 0) / limitedProducts.length).toFixed(1)
+          averageProductMargin: topProducts.length > 0 
+            ? (topProducts.reduce((sum, p) => sum + p.marginPercentage, 0) / topProducts.length).toFixed(1)
             : 0,
-          averageBrandMargin: limitedBrands.length > 0
-            ? (limitedBrands.reduce((sum, b) => sum + b.averageMargin, 0) / limitedBrands.length).toFixed(1)
+          averageBrandMargin: topBrands.length > 0
+            ? (topBrands.reduce((sum, b) => sum + b.averageMargin, 0) / topBrands.length).toFixed(1)
             : 0
         },
         filters: {
@@ -294,8 +130,9 @@ router.get('/', async (req, res) => {
     });
 
   } catch (error) {
-    console.error('Error fetching top-selling data:', error);
+    console.error('Error fetching top-selling data from database:', error);
     res.status(500).json({
+      success: false,
       error: 'Failed to fetch top-selling data',
       message: error.message
     });
@@ -307,22 +144,59 @@ router.get('/products', async (req, res) => {
   try {
     const { limit = 10, category, brand, sortBy = 'salesVolume' } = req.query;
     
-    let filteredProducts = [...mockTopProducts];
+    console.log('📊 Fetching top-selling products from database');
+    
+    // Build query filters
+    let productFilter = { isActive: true };
     
     if (category) {
-      filteredProducts = filteredProducts.filter(p => 
-        p.category.toLowerCase() === category.toLowerCase()
-      );
+      productFilter.category = new RegExp(category, 'i');
     }
     
     if (brand) {
-      filteredProducts = filteredProducts.filter(p => 
-        p.brand.name.toLowerCase() === brand.toLowerCase()
-      );
+      productFilter['brand.name'] = new RegExp(brand, 'i');
     }
     
+    // Get products from database
+    const products = await Product.find(productFilter)
+      .populate('brand', 'name logo')
+      .sort({ salesCount: -1, createdAt: -1 })
+      .limit(parseInt(limit));
+    
+    // Calculate sales metrics for each product
+    const topProducts = products.map((product, index) => {
+      const salesVolume = product.salesCount || 0;
+      const revenue = salesVolume * (product.price || 0);
+      const margin = revenue * 0.2; // 20% margin assumption
+      const marginPercentage = 20;
+      
+      // Calculate trend (mock for now - would need historical data)
+      const trend = salesVolume > 10 ? 'up' : salesVolume > 5 ? 'stable' : 'down';
+      const trendPercentage = trend === 'up' ? Math.random() * 20 : trend === 'down' ? -Math.random() * 10 : Math.random() * 5;
+      
+      return {
+        id: product._id.toString(),
+        name: product.name,
+        brand: {
+          name: product.brand?.name || 'Unknown',
+          logo: product.brand?.logo || '/brands/default.png'
+        },
+        image: product.images?.[0] || '/products/placeholder.jpg',
+        salesVolume,
+        revenue: Math.round(revenue),
+        margin: Math.round(margin),
+        marginPercentage,
+        price: product.price || 0,
+        category: product.category || 'Other',
+        condition: product.condition || 'New',
+        trend,
+        trendPercentage: Math.round(trendPercentage * 10) / 10,
+        rank: index + 1
+      };
+    });
+    
     // Sort by specified field
-    filteredProducts.sort((a, b) => {
+    topProducts.sort((a, b) => {
       if (sortBy === 'revenue') {
         return b.revenue - a.revenue;
       } else if (sortBy === 'margin') {
@@ -334,20 +208,19 @@ router.get('/products', async (req, res) => {
       }
     });
     
-    const limitedProducts = filteredProducts.slice(0, parseInt(limit));
-    
     res.json({
       success: true,
       data: {
-        products: limitedProducts,
-        total: limitedProducts.length,
+        products: topProducts,
+        total: topProducts.length,
         filters: { category, brand, sortBy, limit: parseInt(limit) }
       }
     });
 
   } catch (error) {
-    console.error('Error fetching top-selling products:', error);
+    console.error('Error fetching top-selling products from database:', error);
     res.status(500).json({
+      success: false,
       error: 'Failed to fetch top-selling products',
       message: error.message
     });
@@ -359,10 +232,49 @@ router.get('/brands', async (req, res) => {
   try {
     const { limit = 10, sortBy = 'totalSales' } = req.query;
     
-    let filteredBrands = [...mockTopBrands];
+    console.log('📊 Fetching top-selling brands from database');
+    
+    // Get all products to calculate brand stats
+    const products = await Product.find({ isActive: true })
+      .populate('brand', 'name logo');
+    
+    // Calculate brand statistics
+    const brandStats = {};
+    products.forEach(product => {
+      const brandName = product.brand?.name || 'Unknown';
+      if (!brandStats[brandName]) {
+        brandStats[brandName] = {
+          name: brandName,
+          logo: product.brand?.logo || '/brands/default.png',
+          totalSales: 0,
+          totalRevenue: 0,
+          productCount: 0,
+          topProduct: product.name,
+          averageMargin: 0
+        };
+      }
+      
+      const salesVolume = product.salesCount || 0;
+      const revenue = salesVolume * (product.price || 0);
+      
+      brandStats[brandName].totalSales += salesVolume;
+      brandStats[brandName].totalRevenue += revenue;
+      brandStats[brandName].productCount += 1;
+    });
+    
+    // Convert to array and sort
+    let topBrands = Object.values(brandStats)
+      .map((brand, index) => ({
+        ...brand,
+        totalRevenue: Math.round(brand.totalRevenue),
+        averageMargin: 20, // 20% margin assumption
+        trend: brand.totalSales > 50 ? 'up' : brand.totalSales > 20 ? 'stable' : 'down',
+        trendPercentage: brand.totalSales > 50 ? Math.random() * 15 : brand.totalSales > 20 ? Math.random() * 5 : -Math.random() * 5,
+        rank: index + 1
+      }));
     
     // Sort by specified field
-    filteredBrands.sort((a, b) => {
+    topBrands.sort((a, b) => {
       if (sortBy === 'revenue') {
         return b.totalRevenue - a.totalRevenue;
       } else if (sortBy === 'margin') {
@@ -372,20 +284,22 @@ router.get('/brands', async (req, res) => {
       }
     });
     
-    const limitedBrands = filteredBrands.slice(0, parseInt(limit));
+    // Apply limit
+    topBrands = topBrands.slice(0, parseInt(limit));
     
     res.json({
       success: true,
       data: {
-        brands: limitedBrands,
-        total: limitedBrands.length,
+        brands: topBrands,
+        total: topBrands.length,
         filters: { sortBy, limit: parseInt(limit) }
       }
     });
 
   } catch (error) {
-    console.error('Error fetching top-selling brands:', error);
+    console.error('Error fetching top-selling brands from database:', error);
     res.status(500).json({
+      success: false,
       error: 'Failed to fetch top-selling brands',
       message: error.message
     });
@@ -395,12 +309,18 @@ router.get('/brands', async (req, res) => {
 // GET /api/top-selling/categories - Get sales by category
 router.get('/categories', async (req, res) => {
   try {
-    const categories = {};
+    console.log('📊 Fetching category sales data from database');
     
-    mockTopProducts.forEach(product => {
-      if (!categories[product.category]) {
-        categories[product.category] = {
-          name: product.category,
+    // Get all products to calculate category stats
+    const products = await Product.find({ isActive: true });
+    
+    // Calculate category statistics
+    const categoryStats = {};
+    products.forEach(product => {
+      const category = product.category || 'Other';
+      if (!categoryStats[category]) {
+        categoryStats[category] = {
+          name: category,
           totalSales: 0,
           totalRevenue: 0,
           productCount: 0,
@@ -408,20 +328,29 @@ router.get('/categories', async (req, res) => {
         };
       }
       
-      categories[product.category].totalSales += product.salesVolume;
-      categories[product.category].totalRevenue += product.revenue;
-      categories[product.category].productCount += 1;
+      const salesVolume = product.salesCount || 0;
+      const revenue = salesVolume * (product.price || 0);
+      
+      categoryStats[category].totalSales += salesVolume;
+      categoryStats[category].totalRevenue += revenue;
+      categoryStats[category].productCount += 1;
     });
     
     // Calculate average margins
-    Object.values(categories).forEach(category => {
-      const categoryProducts = mockTopProducts.filter(p => p.category === category.name);
+    Object.values(categoryStats).forEach(category => {
+      const categoryProducts = products.filter(p => (p.category || 'Other') === category.name);
       category.averageMargin = categoryProducts.length > 0
-        ? (categoryProducts.reduce((sum, p) => sum + p.marginPercentage, 0) / categoryProducts.length).toFixed(1)
+        ? (categoryProducts.reduce((sum, p) => sum + 20, 0) / categoryProducts.length).toFixed(1) // 20% margin assumption
         : 0;
     });
     
-    const categoryArray = Object.values(categories).sort((a, b) => b.totalSales - a.totalSales);
+    // Convert to array and sort by total sales
+    const categoryArray = Object.values(categoryStats)
+      .map(category => ({
+        ...category,
+        totalRevenue: Math.round(category.totalRevenue)
+      }))
+      .sort((a, b) => b.totalSales - a.totalSales);
     
     res.json({
       success: true,
@@ -432,8 +361,9 @@ router.get('/categories', async (req, res) => {
     });
 
   } catch (error) {
-    console.error('Error fetching category data:', error);
+    console.error('Error fetching category data from database:', error);
     res.status(500).json({
+      success: false,
       error: 'Failed to fetch category data',
       message: error.message
     });
