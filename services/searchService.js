@@ -372,6 +372,151 @@ class SearchService {
       rank: index + 1
     }));
   }
+
+  // Export search results
+  async exportResults(filters, format = 'csv', limit = 10000) {
+    await this.initialize();
+    
+    const searchResult = await this.searchProducts({
+      ...filters,
+      limit,
+      page: 1
+    });
+    
+    switch (format.toLowerCase()) {
+      case 'csv':
+        return this.exportToCSV(searchResult.products);
+      case 'xlsx':
+        return this.exportToXLSX(searchResult.products);
+      case 'json':
+        return this.exportToJSON(searchResult.products);
+      default:
+        throw new Error('Unsupported export format');
+    }
+  }
+
+  // Export to CSV
+  exportToCSV(products) {
+    const headers = ['ID', 'Name', 'Brand', 'Category', 'Price', 'Condition', 'Color', 'Stock', 'Rating'];
+    const csvContent = [
+      headers.join(','),
+      ...products.map(product => [
+        product.id,
+        `"${product.name.replace(/"/g, '""')}"`,
+        product.brand,
+        product.category,
+        product.price,
+        product.condition,
+        product.color,
+        product.stock,
+        product.rating
+      ].join(','))
+    ].join('\n');
+    
+    return Buffer.from(csvContent, 'utf8');
+  }
+
+  // Export to XLSX (simplified - in production use xlsx library)
+  exportToXLSX(products) {
+    // For now, return CSV format
+    // In production, use a proper XLSX library like 'xlsx'
+    return this.exportToCSV(products);
+  }
+
+  // Export to JSON
+  exportToJSON(products) {
+    return Buffer.from(JSON.stringify(products, null, 2), 'utf8');
+  }
+
+  // Save search preset
+  async saveSearchPreset(name, filters, userId) {
+    await this.initialize();
+    
+    // In production, save to database
+    const preset = {
+      id: `preset_${Date.now()}`,
+      name,
+      filters,
+      userId,
+      createdAt: new Date().toISOString()
+    };
+    
+    // Mock storage - in production, save to database
+    return preset;
+  }
+
+  // Get search presets
+  async getSearchPresets(userId) {
+    await this.initialize();
+    
+    // Mock presets - in production, fetch from database
+    const presets = [
+      {
+        id: 'preset_1',
+        name: 'Nike Sneakers',
+        filters: {
+          brands: ['Nike'],
+          categories: ['Sneakers']
+        },
+        userId: userId || 'default',
+        createdAt: new Date().toISOString()
+      },
+      {
+        id: 'preset_2',
+        name: 'Luxury Items',
+        filters: {
+          minPrice: 1000,
+          categories: ['Bags', 'Watches']
+        },
+        userId: userId || 'default',
+        createdAt: new Date().toISOString()
+      }
+    ];
+    
+    return presets.filter(preset => !userId || preset.userId === userId);
+  }
+
+  // Get search analytics
+  async getSearchAnalytics(timeframe = '7d') {
+    await this.initialize();
+    
+    // Mock analytics data
+    const analytics = {
+      totalSearches: Math.floor(Math.random() * 10000) + 5000,
+      uniqueSearches: Math.floor(Math.random() * 5000) + 2000,
+      topSearches: [
+        { term: 'Nike Air Jordan', count: 1250 },
+        { term: 'Supreme', count: 980 },
+        { term: 'Yeezy', count: 850 },
+        { term: 'Off-White', count: 720 },
+        { term: 'Travis Scott', count: 650 }
+      ],
+      searchTrends: this.generateSearchTrends(timeframe),
+      conversionRate: (Math.random() * 5 + 2).toFixed(2),
+      avgSearchTime: (Math.random() * 2 + 0.5).toFixed(2)
+    };
+    
+    return analytics;
+  }
+
+  // Generate search trends data
+  generateSearchTrends(timeframe) {
+    const days = timeframe === '7d' ? 7 : timeframe === '30d' ? 30 : 90;
+    const trends = [];
+    
+    for (let i = days - 1; i >= 0; i--) {
+      const date = new Date();
+      date.setDate(date.getDate() - i);
+      
+      trends.push({
+        date: date.toISOString().split('T')[0],
+        searches: Math.floor(Math.random() * 500) + 100,
+        uniqueSearches: Math.floor(Math.random() * 300) + 50
+      });
+    }
+    
+    return trends;
+  }
 }
 
 module.exports = new SearchService();

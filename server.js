@@ -29,6 +29,8 @@ const insightsRoutes = require('./api/insights');
 const seasonalTrendsRoutes = require('./api/seasonalTrends');
 const productManagementRoutes = require('./api/productManagement');
 const cartRoutes = require('./api/cart');
+const userManagementRoutes = require('./api/userManagement');
+const dashboardRoutes = require('./api/dashboard');
 const { connectDB } = require('./config/database');
 
 const app = express();
@@ -174,6 +176,8 @@ app.use('/api/insights', insightsRoutes);
 app.use('/api/seasonal-trends', seasonalTrendsRoutes);
 app.use('/api/product-management', productManagementRoutes);
 app.use('/api/cart', cartRoutes);
+app.use('/api/user-management', userManagementRoutes);
+app.use('/api/dashboard', dashboardRoutes);
 
 // Error handling middleware
 app.use((err, req, res, next) => {

@@ -32,18 +32,38 @@ const getDashboardData = async () => {
           seller: { username: 'admin' }, // Default seller
           createdAt: activity.timestamp
         })),
-      sales: [], // Mock sales data - replace with real data when available
-      users: [] // Mock users data - replace with real data when available
+      sales: recentActivity
+        .filter(activity => activity.type === 'sale')
+        .map(activity => ({
+          id: activity.metadata.saleId || activity.id,
+          product: {
+            brand: activity.description.split(' ')[0],
+            name: activity.description.split(' ').slice(1).join(' ')
+          },
+          price: activity.metadata.price || 0,
+          createdAt: activity.timestamp
+        })),
+      users: recentActivity
+        .filter(activity => activity.type === 'user_registered')
+        .map(activity => ({
+          id: activity.metadata.userId || activity.id,
+          username: activity.description.split(' ')[0],
+          email: activity.metadata.email || 'user@example.com',
+          createdAt: activity.timestamp
+        }))
     };
     
     // Debug: Log the transformed data
     console.log('Transformed recentActivity:', JSON.stringify(transformedRecentActivity, null, 2));
 
-    return {
+    // Transform data into frontend-ready format
+    const frontendReadyData = {
       metrics,
-      recentActivity: transformedRecentActivity,
+      recentActivity: transformRecentActivityForFrontend(transformedRecentActivity),
       pendingVerifications
     };
+
+    return frontendReadyData;
   } catch (error) {
     console.error('Error getting dashboard data:', error);
     throw error;
@@ -67,6 +87,53 @@ const getPendingVerifications = async () => {
     images: product.images,
     submittedAt: product.createdAt.toISOString()
   }));
+};
+
+// Transform recent activity data for frontend consumption
+const transformRecentActivityForFrontend = (recentActivity) => {
+  const activities = [];
+  
+  // Transform products
+  if (recentActivity.products && Array.isArray(recentActivity.products)) {
+    recentActivity.products.forEach(product => {
+      activities.push({
+        id: product.id,
+        type: 'product_added',
+        description: `New ${product.brand.name} ${product.name} added by ${product.seller.username}`,
+        timestamp: product.createdAt,
+        status: 'success',
+      });
+    });
+  }
+  
+  // Transform sales
+  if (recentActivity.sales && Array.isArray(recentActivity.sales)) {
+    recentActivity.sales.forEach(sale => {
+      activities.push({
+        id: sale.id,
+        type: 'sale',
+        description: `${sale.product.brand} ${sale.product.name} sold for $${sale.price}`,
+        timestamp: sale.createdAt,
+        status: 'success',
+      });
+    });
+  }
+  
+  // Transform users
+  if (recentActivity.users && Array.isArray(recentActivity.users)) {
+    recentActivity.users.forEach(user => {
+      activities.push({
+        id: user.id,
+        type: 'user_registered',
+        description: `New user ${user.username} registered`,
+        timestamp: user.createdAt,
+        status: 'success',
+      });
+    });
+  }
+  
+  // Sort by timestamp (most recent first)
+  return activities.sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp));
 };
 
 // GET /api/admin/dashboard
