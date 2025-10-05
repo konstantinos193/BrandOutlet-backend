@@ -4,6 +4,7 @@ const Product = require('../models/Product');
 const { getDB } = require('../config/database');
 const analyticsService = require('../services/analyticsService');
 const aiInsightsService = require('../services/aiInsightsService');
+const CustomOrder = require('../models/CustomOrder');
 
 // Helper function to get comprehensive dashboard data
 const getDashboardData = async () => {
@@ -712,5 +713,254 @@ const generateHealthRecommendations = (healthScore, metrics) => {
   
   return recommendations;
 };
+
+// GET /api/admin/custom-orders - Get all custom orders
+router.get('/custom-orders', async (req, res) => {
+  try {
+    console.log('📋 Custom orders requested');
+    
+    const { status, page = 1, limit = 10, sort = 'createdAt', order = 'desc' } = req.query;
+    
+    const query = {};
+    if (status) {
+      query.status = status;
+    }
+    
+    const skip = (parseInt(page) - 1) * parseInt(limit);
+    const sortObj = { [sort]: order === 'desc' ? -1 : 1 };
+    
+    const [orders, total] = await Promise.all([
+      CustomOrder.find(query)
+        .sort(sortObj)
+        .skip(skip)
+        .limit(parseInt(limit))
+        .lean(),
+      CustomOrder.countDocuments(query)
+    ]);
+    
+    res.json({
+      success: true,
+      data: {
+        orders,
+        pagination: {
+          current: parseInt(page),
+          total: Math.ceil(total / parseInt(limit)),
+          count: total,
+          limit: parseInt(limit)
+        }
+      },
+      timestamp: new Date().toISOString()
+    });
+  } catch (error) {
+    console.error('Error fetching custom orders:', error);
+    res.status(500).json({
+      success: false,
+      error: 'Failed to fetch custom orders',
+      message: error.message
+    });
+  }
+});
+
+// GET /api/admin/custom-orders/:id - Get specific custom order
+router.get('/custom-orders/:id', async (req, res) => {
+  try {
+    const { id } = req.params;
+    console.log(`📋 Custom order ${id} requested`);
+    
+    const order = await CustomOrder.findById(id).lean();
+    
+    if (!order) {
+      return res.status(404).json({
+        success: false,
+        error: 'Custom order not found'
+      });
+    }
+    
+    res.json({
+      success: true,
+      data: order,
+      timestamp: new Date().toISOString()
+    });
+  } catch (error) {
+    console.error('Error fetching custom order:', error);
+    res.status(500).json({
+      success: false,
+      error: 'Failed to fetch custom order',
+      message: error.message
+    });
+  }
+});
+
+// PUT /api/admin/custom-orders/:id/status - Update custom order status
+router.put('/custom-orders/:id/status', async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { status, adminResponse, quote } = req.body;
+    
+    console.log(`📋 Updating custom order ${id} status to ${status}`);
+    
+    const updateData = { 
+      status,
+      updatedAt: new Date()
+    };
+    
+    if (adminResponse) {
+      updateData.adminResponse = adminResponse;
+    }
+    
+    if (quote) {
+      updateData.quote = quote;
+    }
+    
+    const order = await CustomOrder.findByIdAndUpdate(
+      id, 
+      updateData, 
+      { new: true }
+    );
+    
+    if (!order) {
+      return res.status(404).json({
+        success: false,
+        error: 'Custom order not found'
+      });
+    }
+    
+    res.json({
+      success: true,
+      data: order,
+      message: `Custom order status updated to ${status}`,
+      timestamp: new Date().toISOString()
+    });
+  } catch (error) {
+    console.error('Error updating custom order status:', error);
+    res.status(500).json({
+      success: false,
+      error: 'Failed to update custom order status',
+      message: error.message
+    });
+  }
+});
+
+// PUT /api/admin/custom-orders/:id/respond - Add admin response to custom order
+router.put('/custom-orders/:id/respond', async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { adminResponse, quote } = req.body;
+    
+    console.log(`📋 Adding response to custom order ${id}`);
+    
+    const updateData = {
+      adminResponse,
+      updatedAt: new Date()
+    };
+    
+    if (quote) {
+      updateData.quote = quote;
+    }
+    
+    const order = await CustomOrder.findByIdAndUpdate(
+      id, 
+      updateData, 
+      { new: true }
+    );
+    
+    if (!order) {
+      return res.status(404).json({
+        success: false,
+        error: 'Custom order not found'
+      });
+    }
+    
+    res.json({
+      success: true,
+      data: order,
+      message: 'Response added to custom order',
+      timestamp: new Date().toISOString()
+    });
+  } catch (error) {
+    console.error('Error adding response to custom order:', error);
+    res.status(500).json({
+      success: false,
+      error: 'Failed to add response to custom order',
+      message: error.message
+    });
+  }
+});
+
+// GET /api/admin/custom-orders/stats - Get custom orders statistics
+router.get('/custom-orders/stats', async (req, res) => {
+  try {
+    console.log('📊 Custom orders statistics requested');
+    
+    const [
+      totalOrders,
+      pendingOrders,
+      inProgressOrders,
+      completedOrders,
+      recentOrders
+    ] = await Promise.all([
+      CustomOrder.countDocuments(),
+      CustomOrder.countDocuments({ status: 'pending' }),
+      CustomOrder.countDocuments({ status: 'in_progress' }),
+      CustomOrder.countDocuments({ status: 'completed' }),
+      CustomOrder.find()
+        .sort({ createdAt: -1 })
+        .limit(5)
+        .select('customerName instagramHandle description status createdAt')
+        .lean()
+    ]);
+    
+    const stats = {
+      total: totalOrders,
+      pending: pendingOrders,
+      inProgress: inProgressOrders,
+      completed: completedOrders,
+      recent: recentOrders
+    };
+    
+    res.json({
+      success: true,
+      data: stats,
+      timestamp: new Date().toISOString()
+    });
+  } catch (error) {
+    console.error('Error fetching custom orders stats:', error);
+    res.status(500).json({
+      success: false,
+      error: 'Failed to fetch custom orders statistics',
+      message: error.message
+    });
+  }
+});
+
+// DELETE /api/admin/custom-orders/:id - Delete custom order
+router.delete('/custom-orders/:id', async (req, res) => {
+  try {
+    const { id } = req.params;
+    console.log(`🗑️ Deleting custom order ${id}`);
+    
+    const order = await CustomOrder.findByIdAndDelete(id);
+    
+    if (!order) {
+      return res.status(404).json({
+        success: false,
+        error: 'Custom order not found'
+      });
+    }
+    
+    res.json({
+      success: true,
+      message: 'Custom order deleted successfully',
+      timestamp: new Date().toISOString()
+    });
+  } catch (error) {
+    console.error('Error deleting custom order:', error);
+    res.status(500).json({
+      success: false,
+      error: 'Failed to delete custom order',
+      message: error.message
+    });
+  }
+});
 
 module.exports = router;

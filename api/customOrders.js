@@ -60,11 +60,25 @@ router.post('/', upload.array('images', 10), async (req, res) => {
     console.log('📝 Creating custom order in database');
 
     // Validate required fields
-    if (!customerName || !customerEmail || !description) {
+    if (!customerName || !description) {
       return res.status(400).json({
         success: false,
         error: 'Missing required fields',
-        message: 'Customer name, email, and description are required'
+        message: 'Customer name and description are required'
+      });
+    }
+
+    // Require at least one contact method
+    const hasContact = Boolean(
+      (customerEmail && customerEmail.trim()) ||
+      (instagramHandle && instagramHandle.trim()) ||
+      (customerPhone && customerPhone.trim())
+    );
+    if (!hasContact) {
+      return res.status(400).json({
+        success: false,
+        error: 'Missing contact information',
+        message: 'Provide at least one contact: email, Instagram handle, or phone'
       });
     }
 
@@ -89,7 +103,7 @@ router.post('/', upload.array('images', 10), async (req, res) => {
       orderNumber,
       customer: {
         name: customerName,
-        email: customerEmail,
+        email: customerEmail || '',
         phone: customerPhone || '',
         instagramHandle: instagramHandle || ''
       },
