@@ -21,6 +21,14 @@ const globalSearchRoutes = require('./api/globalSearch');
 const statsRoutes = require('./api/stats');
 const trappersRoutes = require('./api/trappers');
 const { router: sizeConversionRoutes } = require('./api/sizeConversion');
+const seoRoutes = require('./api/seo');
+const unifiedAnalyticsRoutes = require('./api/unifiedAnalytics');
+const forecastingRoutes = require('./api/forecasting');
+const realTimeRoutes = require('./api/realTime');
+const insightsRoutes = require('./api/insights');
+const seasonalTrendsRoutes = require('./api/seasonalTrends');
+const productManagementRoutes = require('./api/productManagement');
+const cartRoutes = require('./api/cart');
 const { connectDB } = require('./config/database');
 
 const app = express();
@@ -158,6 +166,14 @@ app.use('/api/search/global', globalSearchRoutes);
 app.use('/api/stats', statsRoutes);
 app.use('/api/trappers', trappersRoutes);
 app.use('/api/sizeConversion', sizeConversionRoutes);
+app.use('/api/seo', seoRoutes);
+app.use('/api/unified-analytics', unifiedAnalyticsRoutes);
+app.use('/api/forecasting', forecastingRoutes);
+app.use('/api/real-time', realTimeRoutes);
+app.use('/api/insights', insightsRoutes);
+app.use('/api/seasonal-trends', seasonalTrendsRoutes);
+app.use('/api/product-management', productManagementRoutes);
+app.use('/api/cart', cartRoutes);
 
 // Error handling middleware
 app.use((err, req, res, next) => {

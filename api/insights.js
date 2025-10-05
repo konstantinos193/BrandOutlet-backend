@@ -1,0 +1,167 @@
+const express = require('express');
+const router = express.Router();
+const insightsService = require('../services/insightsService');
+
+// GET /api/insights - Get AI-powered insights
+router.get('/', async (req, res) => {
+  try {
+    const { focus = 'all' } = req.query;
+    
+    const insights = await insightsService.generateInsights(focus);
+    
+    res.json({
+      success: true,
+      data: insights,
+      timestamp: new Date().toISOString()
+    });
+  } catch (error) {
+    console.error('Error generating insights:', error);
+    res.status(500).json({
+      success: false,
+      error: 'Failed to generate insights',
+      message: error.message
+    });
+  }
+});
+
+// GET /api/insights/sales - Get sales-focused insights
+router.get('/sales', async (req, res) => {
+  try {
+    const insights = await insightsService.generateInsights('sales');
+    
+    res.json({
+      success: true,
+      data: insights,
+      timestamp: new Date().toISOString()
+    });
+  } catch (error) {
+    console.error('Error generating sales insights:', error);
+    res.status(500).json({
+      success: false,
+      error: 'Failed to generate sales insights',
+      message: error.message
+    });
+  }
+});
+
+// GET /api/insights/users - Get user-focused insights
+router.get('/users', async (req, res) => {
+  try {
+    const insights = await insightsService.generateInsights('users');
+    
+    res.json({
+      success: true,
+      data: insights,
+      timestamp: new Date().toISOString()
+    });
+  } catch (error) {
+    console.error('Error generating user insights:', error);
+    res.status(500).json({
+      success: false,
+      error: 'Failed to generate user insights',
+      message: error.message
+    });
+  }
+});
+
+// GET /api/insights/performance - Get performance-focused insights
+router.get('/performance', async (req, res) => {
+  try {
+    const insights = await insightsService.generateInsights('performance');
+    
+    res.json({
+      success: true,
+      data: insights,
+      timestamp: new Date().toISOString()
+    });
+  } catch (error) {
+    console.error('Error generating performance insights:', error);
+    res.status(500).json({
+      success: false,
+      error: 'Failed to generate performance insights',
+      message: error.message
+    });
+  }
+});
+
+// GET /api/insights/inventory - Get inventory-focused insights
+router.get('/inventory', async (req, res) => {
+  try {
+    const insights = await insightsService.generateInsights('inventory');
+    
+    res.json({
+      success: true,
+      data: insights,
+      timestamp: new Date().toISOString()
+    });
+  } catch (error) {
+    console.error('Error generating inventory insights:', error);
+    res.status(500).json({
+      success: false,
+      error: 'Failed to generate inventory insights',
+      message: error.message
+    });
+  }
+});
+
+// GET /api/insights/marketing - Get marketing-focused insights
+router.get('/marketing', async (req, res) => {
+  try {
+    const insights = await insightsService.generateInsights('marketing');
+    
+    res.json({
+      success: true,
+      data: insights,
+      timestamp: new Date().toISOString()
+    });
+  } catch (error) {
+    console.error('Error generating marketing insights:', error);
+    res.status(500).json({
+      success: false,
+      error: 'Failed to generate marketing insights',
+      message: error.message
+    });
+  }
+});
+
+// GET /api/insights/strategic-recommendations - Get strategic recommendations
+router.get('/strategic-recommendations', async (req, res) => {
+  try {
+    const recommendations = await insightsService.generateStrategicRecommendations();
+    
+    res.json({
+      success: true,
+      data: recommendations,
+      timestamp: new Date().toISOString()
+    });
+  } catch (error) {
+    console.error('Error generating strategic recommendations:', error);
+    res.status(500).json({
+      success: false,
+      error: 'Failed to generate strategic recommendations',
+      message: error.message
+    });
+  }
+});
+
+// POST /api/insights/clear-cache - Clear insights cache
+router.post('/clear-cache', async (req, res) => {
+  try {
+    insightsService.clearCache();
+    
+    res.json({
+      success: true,
+      message: 'Insights cache cleared successfully',
+      timestamp: new Date().toISOString()
+    });
+  } catch (error) {
+    console.error('Error clearing insights cache:', error);
+    res.status(500).json({
+      success: false,
+      error: 'Failed to clear insights cache',
+      message: error.message
+    });
+  }
+});
+
+module.exports = router;
