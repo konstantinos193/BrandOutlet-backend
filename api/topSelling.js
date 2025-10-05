@@ -2,6 +2,7 @@ const express = require('express');
 const router = express.Router();
 const Product = require('../models/Product');
 const { getDB } = require('../config/database');
+const { ObjectId } = require('mongodb');
 
 // GET /api/top-selling - Get top-selling products and brands from real database
 router.get('/', async (req, res) => {
@@ -18,19 +19,21 @@ router.get('/', async (req, res) => {
     }
     
     if (brand) {
-      productFilter.brandName = new RegExp(brand, 'i');
+      productFilter['brand.name'] = new RegExp(brand, 'i');
     }
     
-    // Get products from database using the correct method
-    const products = await Product.findAll(productFilter);
+    // Get products from database using native MongoDB driver
+    const db = getDB();
+    const collection = db.collection('products');
     
-    // Sort by salesCount and limit results
-    const sortedProducts = products
-      .sort((a, b) => (b.salesCount || 0) - (a.salesCount || 0))
-      .slice(0, parseInt(limit));
+    const products = await collection
+      .find(productFilter)
+      .sort({ salesCount: -1, createdAt: -1 })
+      .limit(parseInt(limit))
+      .toArray();
     
     // Calculate sales metrics for each product
-    const topProducts = sortedProducts.map((product, index) => {
+    const topProducts = products.map((product, index) => {
       const salesVolume = product.salesCount || 0;
       const revenue = salesVolume * (product.price || 0);
       const margin = revenue * 0.2; // 20% margin assumption
@@ -41,7 +44,7 @@ router.get('/', async (req, res) => {
       const trendPercentage = trend === 'up' ? Math.random() * 20 : trend === 'down' ? -Math.random() * 10 : Math.random() * 5;
       
       return {
-        id: product._id.toString(),
+        id: product._id ? product._id.toString() : `unknown_${index}`,
         name: product.name,
         brand: {
           name: product.brand?.name || 'Unknown',
@@ -63,7 +66,7 @@ router.get('/', async (req, res) => {
     
     // Get top brands by aggregating product data
     const brandStats = {};
-    sortedProducts.forEach(product => {
+    products.forEach(product => {
       const brandName = product.brand?.name || 'Unknown';
       if (!brandStats[brandName]) {
         brandStats[brandName] = {
@@ -156,19 +159,21 @@ router.get('/products', async (req, res) => {
     }
     
     if (brand) {
-      productFilter.brandName = new RegExp(brand, 'i');
+      productFilter['brand.name'] = new RegExp(brand, 'i');
     }
     
-    // Get products from database using the correct method
-    const products = await Product.findAll(productFilter);
+    // Get products from database using native MongoDB driver
+    const db = getDB();
+    const collection = db.collection('products');
     
-    // Sort by salesCount and limit results
-    const sortedProducts = products
-      .sort((a, b) => (b.salesCount || 0) - (a.salesCount || 0))
-      .slice(0, parseInt(limit));
+    const products = await collection
+      .find(productFilter)
+      .sort({ salesCount: -1, createdAt: -1 })
+      .limit(parseInt(limit))
+      .toArray();
     
     // Calculate sales metrics for each product
-    const topProducts = sortedProducts.map((product, index) => {
+    const topProducts = products.map((product, index) => {
       const salesVolume = product.salesCount || 0;
       const revenue = salesVolume * (product.price || 0);
       const margin = revenue * 0.2; // 20% margin assumption
@@ -179,7 +184,7 @@ router.get('/products', async (req, res) => {
       const trendPercentage = trend === 'up' ? Math.random() * 20 : trend === 'down' ? -Math.random() * 10 : Math.random() * 5;
       
       return {
-        id: product._id.toString(),
+        id: product._id ? product._id.toString() : `unknown_${index}`,
         name: product.name,
         brand: {
           name: product.brand?.name || 'Unknown',
@@ -238,8 +243,13 @@ router.get('/brands', async (req, res) => {
     
     console.log('📊 Fetching top-selling brands from database');
     
-    // Get all products to calculate brand stats
-    const products = await Product.findAll({ isActive: true });
+    // Get all products to calculate brand stats using native MongoDB driver
+    const db = getDB();
+    const collection = db.collection('products');
+    
+    const products = await collection
+      .find({ isActive: true })
+      .toArray();
     
     // Calculate brand statistics
     const brandStats = {};
@@ -314,8 +324,13 @@ router.get('/categories', async (req, res) => {
   try {
     console.log('📊 Fetching category sales data from database');
     
-    // Get all products to calculate category stats
-    const products = await Product.findAll({ isActive: true });
+    // Get all products to calculate category stats using native MongoDB driver
+    const db = getDB();
+    const collection = db.collection('products');
+    
+    const products = await collection
+      .find({ isActive: true })
+      .toArray();
     
     // Calculate category statistics
     const categoryStats = {};
