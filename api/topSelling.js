@@ -18,17 +18,19 @@ router.get('/', async (req, res) => {
     }
     
     if (brand) {
-      productFilter['brand.name'] = new RegExp(brand, 'i');
+      productFilter.brandName = new RegExp(brand, 'i');
     }
     
-    // Get products from database
-    const products = await Product.find(productFilter)
-      .populate('brand', 'name logo')
-      .sort({ salesCount: -1, createdAt: -1 })
-      .limit(parseInt(limit));
+    // Get products from database using the correct method
+    const products = await Product.findAll(productFilter);
+    
+    // Sort by salesCount and limit results
+    const sortedProducts = products
+      .sort((a, b) => (b.salesCount || 0) - (a.salesCount || 0))
+      .slice(0, parseInt(limit));
     
     // Calculate sales metrics for each product
-    const topProducts = products.map((product, index) => {
+    const topProducts = sortedProducts.map((product, index) => {
       const salesVolume = product.salesCount || 0;
       const revenue = salesVolume * (product.price || 0);
       const margin = revenue * 0.2; // 20% margin assumption
@@ -61,7 +63,7 @@ router.get('/', async (req, res) => {
     
     // Get top brands by aggregating product data
     const brandStats = {};
-    products.forEach(product => {
+    sortedProducts.forEach(product => {
       const brandName = product.brand?.name || 'Unknown';
       if (!brandStats[brandName]) {
         brandStats[brandName] = {
@@ -154,17 +156,19 @@ router.get('/products', async (req, res) => {
     }
     
     if (brand) {
-      productFilter['brand.name'] = new RegExp(brand, 'i');
+      productFilter.brandName = new RegExp(brand, 'i');
     }
     
-    // Get products from database
-    const products = await Product.find(productFilter)
-      .populate('brand', 'name logo')
-      .sort({ salesCount: -1, createdAt: -1 })
-      .limit(parseInt(limit));
+    // Get products from database using the correct method
+    const products = await Product.findAll(productFilter);
+    
+    // Sort by salesCount and limit results
+    const sortedProducts = products
+      .sort((a, b) => (b.salesCount || 0) - (a.salesCount || 0))
+      .slice(0, parseInt(limit));
     
     // Calculate sales metrics for each product
-    const topProducts = products.map((product, index) => {
+    const topProducts = sortedProducts.map((product, index) => {
       const salesVolume = product.salesCount || 0;
       const revenue = salesVolume * (product.price || 0);
       const margin = revenue * 0.2; // 20% margin assumption
@@ -235,8 +239,7 @@ router.get('/brands', async (req, res) => {
     console.log('📊 Fetching top-selling brands from database');
     
     // Get all products to calculate brand stats
-    const products = await Product.find({ isActive: true })
-      .populate('brand', 'name logo');
+    const products = await Product.findAll({ isActive: true });
     
     // Calculate brand statistics
     const brandStats = {};
@@ -312,7 +315,7 @@ router.get('/categories', async (req, res) => {
     console.log('📊 Fetching category sales data from database');
     
     // Get all products to calculate category stats
-    const products = await Product.find({ isActive: true });
+    const products = await Product.findAll({ isActive: true });
     
     // Calculate category statistics
     const categoryStats = {};

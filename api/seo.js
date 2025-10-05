@@ -47,6 +47,14 @@ router.post('/metrics', async (req, res) => {
   try {
     console.log('📊 SEO metrics tracking request received');
     
+    // Add null checks for req.body
+    if (!req.body) {
+      return res.status(400).json({
+        success: false,
+        error: 'Request body is required'
+      });
+    }
+    
     const { error, value } = seoMetricSchema.validate(req.body);
     if (error) {
       console.error('Validation error:', error.details[0].message);
@@ -109,6 +117,14 @@ router.post('/metrics', async (req, res) => {
 // POST /api/seo/batch-metrics - Track multiple SEO metrics at once
 router.post('/batch-metrics', async (req, res) => {
   try {
+    // Add null checks for req.body
+    if (!req.body) {
+      return res.status(400).json({
+        success: false,
+        error: 'Request body is required'
+      });
+    }
+
     const { metrics } = req.body;
     
     if (!Array.isArray(metrics)) {

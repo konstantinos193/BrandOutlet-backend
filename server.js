@@ -169,6 +169,8 @@ app.use('/api/stats', statsRoutes);
 app.use('/api/trappers', trappersRoutes);
 app.use('/api/sizeConversion', sizeConversionRoutes);
 app.use('/api/seo', seoRoutes);
+// Legacy SEO metrics endpoint for backward compatibility
+app.use('/api/seo-metrics', seoRoutes);
 app.use('/api/unified-analytics', unifiedAnalyticsRoutes);
 app.use('/api/forecasting', forecastingRoutes);
 app.use('/api/real-time', realTimeRoutes);

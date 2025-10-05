@@ -149,14 +149,31 @@ router.post('/exit', async (req, res) => {
 
     const { sessionId, page, duration } = req.body;
 
+    // If no sessionId provided, create a default one
+    const trackingSessionId = sessionId || 'anonymous-' + Date.now();
+
     // Find the last page view for this session and update it
     const lastView = pageViews
-      .filter(view => view.sessionId === sessionId)
+      .filter(view => view.sessionId === trackingSessionId)
       .sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp))[0];
 
     if (lastView) {
       lastView.exitPage = true;
       lastView.duration = duration || 0;
+    } else {
+      // If no previous view found, create a basic exit record
+      const exitView = {
+        id: uuidv4(),
+        page: page || 'unknown',
+        path: page || '/unknown',
+        sessionId: trackingSessionId,
+        timestamp: new Date(),
+        exitPage: true,
+        duration: duration || 0,
+        ipAddress: req.ip || '127.0.0.1',
+        userAgent: req.get('User-Agent') || 'Unknown'
+      };
+      pageViews.push(exitView);
     }
 
     res.json({

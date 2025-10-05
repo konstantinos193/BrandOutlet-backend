@@ -18,6 +18,7 @@ class Product {
     this.color = data.color;
     this.condition = data.condition;
     this.stock = data.stock || 1;
+    this.salesCount = data.salesCount || 0;
     this.isActive = data.isActive !== false;
     this.tags = data.tags || [];
     this.sku = data.sku;
@@ -54,6 +55,7 @@ class Product {
         color: this.color,
         condition: this.condition,
         stock: this.stock,
+        salesCount: this.salesCount,
         isActive: this.isActive,
         tags: this.tags,
         sku: this.sku,
@@ -83,6 +85,7 @@ class Product {
       
       // Apply filters
       if (filters.brandId) query.brandId = filters.brandId;
+      if (filters.brandName) query['brand.name'] = filters.brandName;
       if (filters.category) query.category = filters.category;
       if (filters.isActive !== undefined) query.isActive = filters.isActive;
       if (filters.minPrice || filters.maxPrice) {
@@ -214,6 +217,7 @@ class Product {
       
       // Apply filters
       if (filters.brandId) query.brandId = filters.brandId;
+      if (filters.brandName) query['brand.name'] = filters.brandName;
       if (filters.category) query.category = filters.category;
       if (filters.isActive !== undefined) query.isActive = filters.isActive;
       if (filters.minPrice || filters.maxPrice) {
