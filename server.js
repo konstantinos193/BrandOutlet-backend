@@ -32,6 +32,7 @@ const cartRoutes = require('./api/cart');
 const userManagementRoutes = require('./api/userManagement');
 const dashboardRoutes = require('./api/dashboard');
 const notificationsRoutes = require('./api/notifications');
+const customOrdersRoutes = require('./api/customOrders');
 const { connectDB } = require('./config/database');
 
 const app = express();
@@ -182,6 +183,7 @@ app.use('/api/cart', cartRoutes);
 app.use('/api/user-management', userManagementRoutes);
 app.use('/api/dashboard', dashboardRoutes);
 app.use('/api/notifications', notificationsRoutes);
+app.use('/api/custom-orders', customOrdersRoutes);
 
 // Error handling middleware
 app.use((err, req, res, next) => {
