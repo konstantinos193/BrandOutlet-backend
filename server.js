@@ -10,7 +10,7 @@ const { getLazyRouteHandler, preloadCriticalRoutes } = require('./utils/routeLoa
 const { preloadCriticalServices } = require('./utils/serviceLoader');
 
 // Import Redis client
-const redisClient = require('./config/redis');
+const { connectRedis } = require('./config/redis');
 
 // Critical routes that should be loaded immediately
 const criticalRoutes = [
@@ -177,6 +177,8 @@ app.use('/api/user-management', getLazyRouteHandler('./api/userManagement'));
 app.use('/api/dashboard', getLazyRouteHandler('./api/dashboard'));
 app.use('/api/notifications', getLazyRouteHandler('./api/notifications'));
 app.use('/api/custom-orders', getLazyRouteHandler('./api/customOrders'));
+app.use('/api/performance-analytics', getLazyRouteHandler('./api/performance-analytics'));
+app.use('/api/ml', getLazyRouteHandler('./api/ml'));
 
 // Additional routes with lazy loading
 app.use('/api/variants', getLazyRouteHandler('./api/variants'));
@@ -218,7 +220,7 @@ const startServer = async () => {
     await connectDB();
     
     // Connect to Redis
-    await redisClient.connect();
+    const redisClient = await connectRedis();
     
     // Preload critical routes for faster initial response
     await preloadCriticalRoutes(criticalRoutes);

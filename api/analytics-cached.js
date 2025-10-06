@@ -189,4 +189,151 @@ router.get('/cache-stats', async (req, res) => {
   }
 });
 
+// Analytics tracking endpoints
+// In-memory storage for analytics events (in production, use database)
+const analyticsEvents = [];
+const maxEvents = 10000; // Keep last 10k events
+
+// POST /api/analytics/track - Track analytics events
+router.post('/track', async (req, res) => {
+  try {
+    const event = req.body;
+    
+    // Validate required fields
+    if (!event.eventName || !event.timestamp) {
+      return res.status(400).json({
+        success: false,
+        error: 'Missing required fields: eventName, timestamp'
+      });
+    }
+
+    // Add metadata
+    const trackedEvent = {
+      ...event,
+      id: Date.now() + Math.random(),
+      receivedAt: new Date().toISOString(),
+      userAgent: req.headers['user-agent'],
+      ip: req.ip || req.connection.remoteAddress
+    };
+
+    // Store event
+    analyticsEvents.push(trackedEvent);
+    
+    // Keep only last maxEvents
+    if (analyticsEvents.length > maxEvents) {
+      analyticsEvents.splice(0, analyticsEvents.length - maxEvents);
+    }
+
+    console.log(`📊 Analytics event tracked: ${event.eventName}`);
+
+    res.json({
+      success: true,
+      message: 'Event tracked successfully',
+      eventId: trackedEvent.id
+    });
+
+  } catch (error) {
+    console.error('Error tracking analytics event:', error);
+    res.status(500).json({
+      success: false,
+      error: 'Failed to track event',
+      message: error.message
+    });
+  }
+});
+
+// POST /api/analytics/performance - Track performance metrics
+router.post('/performance', async (req, res) => {
+  try {
+    const metrics = req.body;
+    
+    // Validate required fields
+    if (!metrics.timestamp || !metrics.url) {
+      return res.status(400).json({
+        success: false,
+        error: 'Missing required fields: timestamp, url'
+      });
+    }
+
+    // Add metadata
+    const performanceEvent = {
+      ...metrics,
+      id: Date.now() + Math.random(),
+      receivedAt: new Date().toISOString(),
+      userAgent: req.headers['user-agent'],
+      ip: req.ip || req.connection.remoteAddress
+    };
+
+    // Store performance metrics
+    analyticsEvents.push({
+      eventName: 'performance_metrics',
+      eventData: performanceEvent,
+      timestamp: performanceEvent.timestamp,
+      receivedAt: performanceEvent.receivedAt
+    });
+
+    console.log(`📈 Performance metrics tracked for ${metrics.url}`);
+
+    res.json({
+      success: true,
+      message: 'Performance metrics tracked successfully'
+    });
+
+  } catch (error) {
+    console.error('Error tracking performance metrics:', error);
+    res.status(500).json({
+      success: false,
+      error: 'Failed to track performance metrics',
+      message: error.message
+    });
+  }
+});
+
+// POST /api/analytics/performance-alert - Track performance alerts
+router.post('/performance-alert', async (req, res) => {
+  try {
+    const alert = req.body;
+    
+    // Validate required fields
+    if (!alert.metric || !alert.value || !alert.threshold) {
+      return res.status(400).json({
+        success: false,
+        error: 'Missing required fields: metric, value, threshold'
+      });
+    }
+
+    // Add metadata
+    const alertEvent = {
+      ...alert,
+      id: Date.now() + Math.random(),
+      receivedAt: new Date().toISOString(),
+      userAgent: req.headers['user-agent'],
+      ip: req.ip || req.connection.remoteAddress
+    };
+
+    // Store performance alert
+    analyticsEvents.push({
+      eventName: 'performance_alert',
+      eventData: alertEvent,
+      timestamp: alertEvent.timestamp || new Date().toISOString(),
+      receivedAt: alertEvent.receivedAt
+    });
+
+    console.log(`⚠️ Performance alert tracked: ${alert.metric} = ${alert.value} (threshold: ${alert.threshold})`);
+
+    res.json({
+      success: true,
+      message: 'Performance alert tracked successfully'
+    });
+
+  } catch (error) {
+    console.error('Error tracking performance alert:', error);
+    res.status(500).json({
+      success: false,
+      error: 'Failed to track performance alert',
+      message: error.message
+    });
+  }
+});
+
 module.exports = router;
