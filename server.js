@@ -158,6 +158,15 @@ app.get(healthCheckPath, (req, res) => {
   res.status(200).json(healthData);
 });
 
+// Test endpoint to verify route loading
+app.get('/api/test', (req, res) => {
+  res.json({
+    success: true,
+    message: 'API routes are working',
+    timestamp: new Date().toISOString()
+  });
+});
+
 // Direct analytics tracking endpoint (bypasses route loader)
 let analyticsEvents = [];
 const maxEvents = 10000;
@@ -210,6 +219,7 @@ app.post('/api/analytics/track', (req, res) => {
 });
 
 // API routes - Critical routes loaded immediately
+console.log('🔧 Loading critical API routes...');
 app.use('/api/user-preferences', getLazyRouteHandler('./api/userPreferences'));
 app.use('/api/analytics', getLazyRouteHandler('./api/analytics-cached')); // Use cached analytics
 app.use('/api/analytics-tracker', getLazyRouteHandler('./api/analytics-tracker')); // Simple analytics tracker
@@ -217,6 +227,7 @@ app.use('/api/page-tracking', getLazyRouteHandler('./api/pageTracking'));
 app.use('/api/products', getLazyRouteHandler('./api/products-cached')); // Use cached products
 app.use('/api/cart', getLazyRouteHandler('./api/cart'));
 app.use('/api/admin', getLazyRouteHandler('./api/admin')); // Admin dashboard
+console.log('✅ Critical routes loaded');
 
 // Admin route loaded with critical routes (moved above)
 app.use('/api/unified-analytics', getLazyRouteHandler('./api/unifiedAnalytics'));
@@ -233,6 +244,7 @@ app.use('/api/performance-analytics', getLazyRouteHandler('./api/performance-ana
 app.use('/api/ml', getLazyRouteHandler('./api/ml'));
 
 // Additional routes with lazy loading
+console.log('🔧 Loading additional API routes...');
 app.use('/api/variants', getLazyRouteHandler('./api/variants'));
 app.use('/api/top-selling', getLazyRouteHandler('./api/topSelling'));
 app.use('/api/data-driven-strategies', getLazyRouteHandler('./api/dataDrivenStrategies'));
@@ -242,11 +254,13 @@ app.use('/api/payments', getLazyRouteHandler('./api/payments'));
 app.use('/api/refunds', getLazyRouteHandler('./api/refunds'));
 app.use('/api/search/global', getLazyRouteHandler('./api/globalSearch'));
 app.use('/api/stats', getLazyRouteHandler('./api/stats'));
+console.log('✅ Stats route loaded: /api/stats');
 app.use('/api/trappers', getLazyRouteHandler('./api/trappers'));
 app.use('/api/sizeConversion', getLazyRouteHandler('./api/sizeConversion'));
 app.use('/api/seo', getLazyRouteHandler('./api/seo'));
 // Legacy SEO metrics endpoint for backward compatibility
 app.use('/api/seo-metrics', getLazyRouteHandler('./api/seo'));
+console.log('✅ All additional routes loaded');
 
 // Error handling middleware
 app.use((err, req, res, next) => {
