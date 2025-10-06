@@ -20,10 +20,10 @@ async function connectDB() {
     }
 
     // Use your MongoDB Cloud URL from environment
-    const mongoUrl = process.env.MONGODB_URI || process.env.MONGODB_CLOUD_URL;
+    const mongoUrl = process.env.DATABASE_URL || process.env.MONGODB_URI || process.env.MONGODB_CLOUD_URL;
     
     if (!mongoUrl) {
-      throw new Error('MONGODB_URI or MONGODB_CLOUD_URL environment variable is required');
+      throw new Error('DATABASE_URL, MONGODB_URI or MONGODB_CLOUD_URL environment variable is required');
     }
     
     client = new MongoClient(mongoUrl, {

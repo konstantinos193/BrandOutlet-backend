@@ -12,6 +12,8 @@ const router = express.Router();
 const models = new Map();
 const forecasts = new Map();
 const abTests = new Map();
+const modelCache = new Map();
+const trainingJobs = new Map();
 
 // Initialize ML models
 const initializeMLModels = () => {
