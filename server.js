@@ -11,6 +11,7 @@ const { preloadCriticalServices } = require('./utils/serviceLoader');
 
 // Direct imports for critical routes
 const trappersRouter = require('./api/trappers');
+const statsRouter = require('./api/stats');
 
 // Import Redis client
 const { connectRedis } = require('./config/redis');
@@ -22,7 +23,8 @@ const criticalRoutes = [
   './api/pageTracking',
   './api/products',
   './api/cart',
-  './api/admin'
+  './api/admin',
+  './api/stats'
 ];
 
 // Heavy routes that can be loaded on-demand
@@ -256,7 +258,7 @@ app.use('/api/orders', getLazyRouteHandler('./api/orders'));
 app.use('/api/payments', getLazyRouteHandler('./api/payments'));
 app.use('/api/refunds', getLazyRouteHandler('./api/refunds'));
 app.use('/api/search/global', getLazyRouteHandler('./api/globalSearch'));
-app.use('/api/stats', getLazyRouteHandler('./api/stats'));
+app.use('/api/stats', statsRouter);
 console.log('✅ Stats route loaded: /api/stats');
 app.use('/api/trappers', trappersRouter);
 app.use('/api/sizeConversion', getLazyRouteHandler('./api/sizeConversion'));
