@@ -25,7 +25,7 @@ function getLazyRouteHandler(routePath) {
       }
 
       // Load route dynamically - resolve relative to backend directory
-      const backendDir = path.dirname(require.main.filename);
+      const backendDir = path.dirname(require.main.filename) || process.cwd();
       const fullPath = path.resolve(backendDir, routePath);
       
       if (!fs.existsSync(fullPath)) {
@@ -69,7 +69,7 @@ async function preloadCriticalRoutes(routes) {
   
   for (const routePath of routes) {
     try {
-      const backendDir = path.dirname(require.main.filename);
+      const backendDir = path.dirname(require.main.filename) || process.cwd();
       const fullPath = path.resolve(backendDir, routePath);
       
       if (fs.existsSync(fullPath)) {
@@ -109,7 +109,7 @@ function loadRouteOnDemand(routePath) {
 
     // Load route dynamically
     try {
-      const backendDir = path.dirname(require.main.filename);
+      const backendDir = path.dirname(require.main.filename) || process.cwd();
       const fullPath = path.resolve(backendDir, routePath);
       
       if (!fs.existsSync(fullPath)) {
