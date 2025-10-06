@@ -18,12 +18,12 @@ const criticalRoutes = [
   './api/analytics',
   './api/pageTracking',
   './api/products',
-  './api/cart'
+  './api/cart',
+  './api/admin'
 ];
 
 // Heavy routes that can be loaded on-demand
 const heavyRoutes = [
-  './api/admin',
   './api/unifiedAnalytics',
   './api/forecasting',
   './api/realTime',
@@ -216,9 +216,9 @@ app.use('/api/analytics-tracker', getLazyRouteHandler('./api/analytics-tracker')
 app.use('/api/page-tracking', getLazyRouteHandler('./api/pageTracking'));
 app.use('/api/products', getLazyRouteHandler('./api/products-cached')); // Use cached products
 app.use('/api/cart', getLazyRouteHandler('./api/cart'));
+app.use('/api/admin', getLazyRouteHandler('./api/admin')); // Admin dashboard
 
-// Heavy routes loaded on-demand
-app.use('/api/admin', getLazyRouteHandler('./api/admin'));
+// Admin route loaded with critical routes (moved above)
 app.use('/api/unified-analytics', getLazyRouteHandler('./api/unifiedAnalytics'));
 app.use('/api/forecasting', getLazyRouteHandler('./api/forecasting'));
 app.use('/api/real-time', getLazyRouteHandler('./api/realTime'));
@@ -275,7 +275,11 @@ const startServer = async () => {
     let redisClient;
     try {
       redisClient = await connectRedis();
-      console.log('✓ Redis client initialized');
+      if (redisClient && redisClient.isFallback) {
+        console.log('⚠️ Redis not available, using fallback mode');
+      } else {
+        console.log('✓ Redis client initialized');
+      }
     } catch (error) {
       console.warn('⚠️ Redis not available, using fallback mode:', error.message);
       // Continue without Redis - the app should still work

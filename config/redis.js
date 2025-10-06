@@ -17,17 +17,28 @@ function createRedisClient() {
     return client;
   }
 
-  const redisUrl = process.env.REDIS_URL || process.env.REDIS_CLOUD_URL || 'redis://localhost:6379';
+  // Check if Redis is available in the environment
+  const redisUrl = process.env.REDIS_URL || process.env.REDIS_CLOUD_URL;
+  
+  // If no Redis URL is provided, return null to use fallback mode
+  if (!redisUrl) {
+    console.log('⚠️ No Redis URL provided, using fallback mode');
+    return null;
+  }
+
+  console.log('🔗 Attempting to connect to Redis:', redisUrl.replace(/\/\/.*@/, '//***@')); // Hide credentials in logs
   
   client = redis.createClient({
     url: redisUrl,
     socket: {
+      connectTimeout: 5000, // 5 second timeout
+      lazyConnect: true, // Don't connect immediately
       reconnectStrategy: (retries) => {
-        if (retries > 10) {
+        if (retries > 3) {
           console.error('Redis max retry attempts reached');
           return new Error('Redis max retry attempts reached');
         }
-        return Math.min(retries * 100, 3000);
+        return Math.min(retries * 100, 1000);
       }
     }
   });
@@ -48,12 +59,40 @@ function createRedisClient() {
     console.log('Redis connection ended');
   });
 
+  // Add cache method to the client
+  client.cache = async (key, fetchFunction, ttl = 300) => {
+    try {
+      // Try to get from cache first
+      const cached = await client.get(key);
+      if (cached) {
+        console.log(`📦 Cache HIT for key: ${key}`);
+        return JSON.parse(cached);
+      }
+
+      // Cache miss - fetch data
+      console.log(`📦 Cache MISS for key: ${key}`);
+      const data = await fetchFunction();
+      
+      // Store in cache
+      await client.set(key, JSON.stringify(data));
+      if (ttl > 0) {
+        await client.expire(key, ttl);
+      }
+      
+      return data;
+    } catch (error) {
+      console.error('Cache error:', error);
+      // Fallback to direct fetch
+      return await fetchFunction();
+    }
+  };
+
   return client;
 }
 
 /**
  * Get Redis client
- * @returns {Object} Redis client
+ * @returns {Object} Redis client or null
  */
 function getRedisClient() {
   if (!client) {
@@ -64,11 +103,17 @@ function getRedisClient() {
 
 /**
  * Connect to Redis
- * @returns {Promise<Object>} Redis client
+ * @returns {Promise<Object>} Redis client or fallback client
  */
 async function connectRedis() {
   try {
     const redisClient = getRedisClient();
+    
+    // If no Redis client available, use fallback
+    if (!redisClient) {
+      console.log('⚠️ Redis not available, using fallback mode');
+      return createFallbackClient();
+    }
     
     // Check if already connected
     if (redisClient.isOpen) {
@@ -81,24 +126,32 @@ async function connectRedis() {
     return redisClient;
   } catch (error) {
     console.error('Redis connection failed:', error);
-    
-    // In production, we might want to fail fast
-    if (process.env.NODE_ENV === 'production') {
-      throw error;
-    }
-    
-    // Return a mock client for development
-    console.log('⚠️ Using mock Redis client for development');
-    return {
-      get: () => Promise.resolve(null),
-      set: () => Promise.resolve('OK'),
-      del: () => Promise.resolve(1),
-      exists: () => Promise.resolve(0),
-      expire: () => Promise.resolve(1),
-      disconnect: () => Promise.resolve(),
-      isOpen: true
-    };
+    console.log('⚠️ Using fallback Redis client');
+    return createFallbackClient();
   }
+}
+
+/**
+ * Create a fallback Redis client for when Redis is not available
+ * @returns {Object} Mock Redis client
+ */
+function createFallbackClient() {
+  return {
+    get: () => Promise.resolve(null),
+    set: () => Promise.resolve('OK'),
+    del: () => Promise.resolve(1),
+    exists: () => Promise.resolve(0),
+    expire: () => Promise.resolve(1),
+    disconnect: () => Promise.resolve(),
+    isOpen: true,
+    ping: () => Promise.resolve('PONG'),
+    isFallback: true,
+    cache: async (key, fetchFunction, ttl) => {
+      // In fallback mode, just execute the function without caching
+      console.log(`⚠️ Cache fallback for key: ${key}`);
+      return await fetchFunction();
+    }
+  };
 }
 
 /**
@@ -109,8 +162,8 @@ async function healthCheck() {
   try {
     if (!client) {
       return {
-        status: 'disconnected',
-        message: 'Redis not connected'
+        status: 'fallback',
+        message: 'Redis not available, using fallback mode'
       };
     }
 
