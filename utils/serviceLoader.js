@@ -1,118 +1,97 @@
 /**
- * Dynamic service loader for code splitting in backend services
- * This allows loading heavy services on-demand to reduce initial bundle size
+ * Service Loader Utility
+ * 
+ * Dynamic service loading for performance optimization
  */
 
+const fs = require('fs');
+const path = require('path');
+
+// Cache for loaded services
 const serviceCache = new Map();
 
 /**
- * Dynamically load a service module
- * @param {string} servicePath - Path to the service file
- * @returns {Promise<Object>} - The service module
+ * Preload critical services
+ * @param {Array<string>} services - Array of service paths
  */
-async function loadService(servicePath) {
-  // Check if service is already cached
+async function preloadCriticalServices(services) {
+  console.log('Preloading critical services...');
+  
+  for (const servicePath of services) {
+    try {
+      const fullPath = path.resolve(servicePath);
+      
+      if (fs.existsSync(fullPath)) {
+        // Clear require cache
+        delete require.cache[require.resolve(fullPath)];
+        
+        // Load service
+        const service = require(fullPath);
+        
+        // Cache service
+        serviceCache.set(servicePath, service);
+        
+        console.log(`✓ Loaded service: ${servicePath}`);
+      } else {
+        console.warn(`⚠ Service file not found: ${servicePath}`);
+      }
+    } catch (error) {
+      console.error(`✗ Failed to load service ${servicePath}:`, error.message);
+    }
+  }
+  
+  console.log(`Preloaded ${serviceCache.size} services`);
+}
+
+/**
+ * Get service on demand
+ * @param {string} servicePath - Path to service file
+ * @returns {any} Service instance
+ */
+function getServiceOnDemand(servicePath) {
+  // Check if service is cached
   if (serviceCache.has(servicePath)) {
     return serviceCache.get(servicePath);
   }
 
+  // Load service dynamically
   try {
-    // Dynamically import the service
-    const serviceModule = await import(servicePath);
-    const service = serviceModule.default || serviceModule;
+    const fullPath = path.resolve(servicePath);
     
-    // Cache the service for future use
+    if (!fs.existsSync(fullPath)) {
+      throw new Error(`Service file not found: ${servicePath}`);
+    }
+
+    // Clear require cache
+    delete require.cache[require.resolve(fullPath)];
+    
+    // Load service
+    const service = require(fullPath);
+    
+    // Cache service
     serviceCache.set(servicePath, service);
     
-    console.log(`✅ Loaded service: ${servicePath}`);
     return service;
+    
   } catch (error) {
-    console.error(`❌ Failed to load service: ${servicePath}`, error);
+    console.error(`Error loading service ${servicePath}:`, error);
     throw error;
   }
 }
 
 /**
- * Load multiple services in parallel
- * @param {Array<string>} servicePaths - Array of service paths
- * @returns {Promise<Array<Object>>} - Array of service modules
- */
-async function loadServices(servicePaths) {
-  const loadPromises = servicePaths.map(servicePath => loadService(servicePath));
-  return Promise.all(loadPromises);
-}
-
-/**
- * Get service with lazy loading
- * @param {string} servicePath - Path to the service file
- * @returns {Function} - Service getter function
- */
-function getLazyService(servicePath) {
-  return async () => {
-    try {
-      return await loadService(servicePath);
-    } catch (error) {
-      console.error(`Error loading service ${servicePath}:`, error);
-      throw error;
-    }
-  };
-}
-
-/**
- * Create a service proxy that loads the service on first access
- * @param {string} servicePath - Path to the service file
- * @returns {Object} - Service proxy object
- */
-function createServiceProxy(servicePath) {
-  let serviceInstance = null;
-  let loadingPromise = null;
-
-  return new Proxy({}, {
-    get(target, prop) {
-      if (serviceInstance) {
-        return serviceInstance[prop];
-      }
-
-      if (!loadingPromise) {
-        loadingPromise = loadService(servicePath).then(service => {
-          serviceInstance = service;
-          return service;
-        });
-      }
-
-      return loadingPromise.then(service => service[prop]);
-    }
-  });
-}
-
-/**
- * Preload critical services
- * @param {Array<string>} criticalServices - Array of critical service paths
- */
-async function preloadCriticalServices(criticalServices) {
-  console.log('🚀 Preloading critical services...');
-  
-  try {
-    await loadServices(criticalServices);
-    console.log('✅ Critical services preloaded successfully');
-  } catch (error) {
-    console.error('❌ Failed to preload critical services:', error);
-  }
-}
-
-/**
- * Clear service cache (useful for development)
+ * Clear service cache
  */
 function clearServiceCache() {
   serviceCache.clear();
-  console.log('🗑️ Service cache cleared');
+  console.log('Service cache cleared');
 }
 
 /**
- * Get cache statistics
- * @returns {Object} - Cache statistics
+ * Get service cache stats
+ * @returns {Object} Cache statistics
  */
-function getCacheStats() {
+function getServiceCacheStats() {
   return {
     size: serviceCache.size,
     services: Array.from(serviceCache.keys())
@@ -120,59 +99,23 @@ function getCacheStats() {
 }
 
 /**
- * Service categories for organized loading
+ * Health check for services
+ * @returns {Object} Health status
  */
-const SERVICE_CATEGORIES = {
-  ANALYTICS: [
-    './services/analyticsService',
-    './services/analyticsDataService',
-    './services/realDataInsightsService'
-  ],
-  AI: [
-    './services/aiInsightsService',
-    './services/aiInsightsGenerator'
-  ],
-  PRODUCTS: [
-    './services/productManagementService',
-    './services/searchService'
-  ],
-  FORECASTING: [
-    './services/forecastingService',
-    './services/seasonalAnalysisService'
-  ],
-  CART: [
-    './services/cartService'
-  ],
-  SEO: [
-    './services/seoService'
-  ],
-  REALTIME: [
-    './services/realTimeService'
-  ]
-};
-
-/**
- * Load services by category
- * @param {string} category - Service category
- * @returns {Promise<Array<Object>>} - Array of service modules
- */
-async function loadServicesByCategory(category) {
-  const servicePaths = SERVICE_CATEGORIES[category];
-  if (!servicePaths) {
-    throw new Error(`Unknown service category: ${category}`);
-  }
-  
-  return loadServices(servicePaths);
+function getServiceHealth() {
+  const stats = getServiceCacheStats();
+  return {
+    status: 'healthy',
+    cachedServices: stats.size,
+    services: stats.services,
+    timestamp: new Date().toISOString()
+  };
 }
 
 module.exports = {
-  loadService,
-  loadServices,
-  getLazyService,
-  createServiceProxy,
   preloadCriticalServices,
+  getServiceOnDemand,
   clearServiceCache,
-  getCacheStats,
-  loadServicesByCategory,
-  SERVICE_CATEGORIES
+  getServiceCacheStats,
+  getServiceHealth
 };

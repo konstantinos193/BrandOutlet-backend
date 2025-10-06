@@ -1,202 +1,125 @@
 /**
- * Redis configuration for caching
+ * Redis Configuration
+ * 
+ * Redis client setup and configuration
  */
 
 const redis = require('redis');
 
-class RedisClient {
-  constructor() {
-    this.client = null;
-    this.isConnected = false;
+let client = null;
+
+/**
+ * Create Redis client
+ * @returns {Object} Redis client
+ */
+function createRedisClient() {
+  if (client) {
+    return client;
   }
 
-  async connect() {
-    try {
-      // Redis connection configuration
-      const redisConfig = {
-        host: process.env.REDIS_HOST || 'localhost',
-        port: process.env.REDIS_PORT || 6379,
-        password: process.env.REDIS_PASSWORD || undefined,
-        db: process.env.REDIS_DB || 0,
-        retryDelayOnFailover: 100,
-        maxRetriesPerRequest: 3,
-        lazyConnect: true,
-      };
-
-      // Create Redis client
-      this.client = redis.createClient(redisConfig);
-
-      // Handle connection events
-      this.client.on('connect', () => {
-        console.log('🔗 Redis client connected');
-        this.isConnected = true;
-      });
-
-      this.client.on('ready', () => {
-        console.log('✅ Redis client ready');
-      });
-
-      this.client.on('error', (err) => {
-        console.error('❌ Redis client error:', err);
-        this.isConnected = false;
-      });
-
-      this.client.on('end', () => {
-        console.log('🔌 Redis client disconnected');
-        this.isConnected = false;
-      });
-
-      // Connect to Redis
-      await this.client.connect();
-      
-      return this.client;
-    } catch (error) {
-      console.error('❌ Failed to connect to Redis:', error);
-      this.isConnected = false;
-      return null;
-    }
-  }
-
-  async disconnect() {
-    if (this.client && this.isConnected) {
-      await this.client.quit();
-      this.isConnected = false;
-    }
-  }
-
-  // Cache operations
-  async get(key) {
-    if (!this.isConnected || !this.client) {
-      return null;
-    }
-
-    try {
-      const value = await this.client.get(key);
-      return value ? JSON.parse(value) : null;
-    } catch (error) {
-      console.error('❌ Redis GET error:', error);
-      return null;
-    }
-  }
-
-  async set(key, value, ttl = 3600) {
-    if (!this.isConnected || !this.client) {
-      return false;
-    }
-
-    try {
-      const serializedValue = JSON.stringify(value);
-      await this.client.setEx(key, ttl, serializedValue);
-      return true;
-    } catch (error) {
-      console.error('❌ Redis SET error:', error);
-      return false;
-    }
-  }
-
-  async del(key) {
-    if (!this.isConnected || !this.client) {
-      return false;
-    }
-
-    try {
-      await this.client.del(key);
-      return true;
-    } catch (error) {
-      console.error('❌ Redis DEL error:', error);
-      return false;
-    }
-  }
-
-  async exists(key) {
-    if (!this.isConnected || !this.client) {
-      return false;
-    }
-
-    try {
-      const result = await this.client.exists(key);
-      return result === 1;
-    } catch (error) {
-      console.error('❌ Redis EXISTS error:', error);
-      return false;
-    }
-  }
-
-  async flush() {
-    if (!this.isConnected || !this.client) {
-      return false;
-    }
-
-    try {
-      await this.client.flushDb();
-      return true;
-    } catch (error) {
-      console.error('❌ Redis FLUSH error:', error);
-      return false;
-    }
-  }
-
-  // Cache with TTL
-  async cache(key, fetchFunction, ttl = 3600) {
-    try {
-      // Try to get from cache first
-      const cached = await this.get(key);
-      if (cached !== null) {
-        console.log(`📦 Cache HIT: ${key}`);
-        return cached;
+  const redisUrl = process.env.REDIS_URL || process.env.REDIS_CLOUD_URL || 'redis://localhost:6379';
+  
+  client = redis.createClient({
+    url: redisUrl,
+    retry_strategy: (options) => {
+      if (options.error && options.error.code === 'ECONNREFUSED') {
+        console.error('Redis server connection refused');
+        return new Error('Redis server connection refused');
       }
-
-      // Cache miss - fetch data
-      console.log(`📦 Cache MISS: ${key}`);
-      const data = await fetchFunction();
-      
-      // Store in cache
-      await this.set(key, data, ttl);
-      
-      return data;
-    } catch (error) {
-      console.error(`❌ Cache error for key ${key}:`, error);
-      // Fallback to direct fetch
-      return await fetchFunction();
-    }
-  }
-
-  // Cache invalidation patterns
-  async invalidatePattern(pattern) {
-    if (!this.isConnected || !this.client) {
-      return false;
-    }
-
-    try {
-      const keys = await this.client.keys(pattern);
-      if (keys.length > 0) {
-        await this.client.del(keys);
-        console.log(`🗑️ Invalidated ${keys.length} cache keys matching pattern: ${pattern}`);
+      if (options.total_retry_time > 1000 * 60 * 60) {
+        console.error('Redis retry time exhausted');
+        return new Error('Redis retry time exhausted');
       }
-      return true;
-    } catch (error) {
-      console.error('❌ Redis pattern invalidation error:', error);
-      return false;
+      if (options.attempt > 10) {
+        console.error('Redis max retry attempts reached');
+        return undefined;
+      }
+      return Math.min(options.attempt * 100, 3000);
     }
+  });
+
+  client.on('error', (err) => {
+    console.error('Redis Client Error:', err);
+  });
+
+  client.on('connect', () => {
+    console.log('✓ Connected to Redis');
+  });
+
+  client.on('ready', () => {
+    console.log('✓ Redis client ready');
+  });
+
+  client.on('end', () => {
+    console.log('Redis connection ended');
+  });
+
+  return client;
+}
+
+/**
+ * Get Redis client
+ * @returns {Object} Redis client
+ */
+function getRedisClient() {
+  if (!client) {
+    return createRedisClient();
   }
+  return client;
+}
 
-  // Health check
-  async ping() {
-    if (!this.isConnected || !this.client) {
-      return false;
-    }
-
-    try {
-      const result = await this.client.ping();
-      return result === 'PONG';
-    } catch (error) {
-      console.error('❌ Redis PING error:', error);
-      return false;
-    }
+/**
+ * Connect to Redis
+ * @returns {Promise<Object>} Redis client
+ */
+async function connectRedis() {
+  try {
+    const redisClient = getRedisClient();
+    await redisClient.connect();
+    return redisClient;
+  } catch (error) {
+    console.error('Redis connection failed:', error);
+    // Return a mock client for development
+    return {
+      get: () => Promise.resolve(null),
+      set: () => Promise.resolve('OK'),
+      del: () => Promise.resolve(1),
+      exists: () => Promise.resolve(0),
+      expire: () => Promise.resolve(1),
+      disconnect: () => Promise.resolve()
+    };
   }
 }
 
-// Create singleton instance
-const redisClient = new RedisClient();
+/**
+ * Health check for Redis
+ * @returns {Promise<Object>} Health status
+ */
+async function healthCheck() {
+  try {
+    if (!client) {
+      return {
+        status: 'disconnected',
+        message: 'Redis not connected'
+      };
+    }
 
-module.exports = redisClient;
+    await client.ping();
+    return {
+      status: 'healthy',
+      message: 'Redis connection is healthy'
+    };
+  } catch (error) {
+    return {
+      status: 'unhealthy',
+      message: error.message
+    };
+  }
+}
+
+module.exports = {
+  createRedisClient,
+  getRedisClient,
+  connectRedis,
+  healthCheck
+};
