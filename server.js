@@ -161,6 +161,7 @@ app.get(healthCheckPath, (req, res) => {
 // API routes - Critical routes loaded immediately
 app.use('/api/user-preferences', getLazyRouteHandler('./api/userPreferences'));
 app.use('/api/analytics', getLazyRouteHandler('./api/analytics-cached')); // Use cached analytics
+app.use('/api/analytics-tracker', getLazyRouteHandler('./api/analytics-tracker')); // Simple analytics tracker
 app.use('/api/page-tracking', getLazyRouteHandler('./api/pageTracking'));
 app.use('/api/products', getLazyRouteHandler('./api/products-cached')); // Use cached products
 app.use('/api/cart', getLazyRouteHandler('./api/cart'));
