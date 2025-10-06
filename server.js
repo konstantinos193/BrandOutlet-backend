@@ -12,6 +12,7 @@ const { preloadCriticalServices } = require('./utils/serviceLoader');
 // Direct imports for critical routes
 const trappersRouter = require('./api/trappers');
 const statsRouter = require('./api/stats');
+const pageTrackingRouter = require('./api/pageTracking');
 
 // Import Redis client
 const { connectRedis } = require('./config/redis');
@@ -228,7 +229,7 @@ console.log('🔧 Loading critical API routes...');
 app.use('/api/user-preferences', getLazyRouteHandler('./api/userPreferences'));
 app.use('/api/analytics', getLazyRouteHandler('./api/analytics-cached')); // Use cached analytics
 app.use('/api/analytics-tracker', getLazyRouteHandler('./api/analytics-tracker')); // Simple analytics tracker
-app.use('/api/page-tracking', getLazyRouteHandler('./api/pageTracking'));
+app.use('/api/page-tracking', pageTrackingRouter);
 app.use('/api/products', getLazyRouteHandler('./api/products-cached')); // Use cached products
 app.use('/api/cart', getLazyRouteHandler('./api/cart'));
 app.use('/api/admin', getLazyRouteHandler('./api/admin')); // Admin dashboard
