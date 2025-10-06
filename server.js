@@ -9,6 +9,9 @@ require('dotenv').config();
 const { getLazyRouteHandler, preloadCriticalRoutes } = require('./utils/routeLoader');
 const { preloadCriticalServices } = require('./utils/serviceLoader');
 
+// Direct imports for critical routes
+const trappersRouter = require('./api/trappers');
+
 // Import Redis client
 const { connectRedis } = require('./config/redis');
 
@@ -255,7 +258,7 @@ app.use('/api/refunds', getLazyRouteHandler('./api/refunds'));
 app.use('/api/search/global', getLazyRouteHandler('./api/globalSearch'));
 app.use('/api/stats', getLazyRouteHandler('./api/stats'));
 console.log('✅ Stats route loaded: /api/stats');
-app.use('/api/trappers', getLazyRouteHandler('./api/trappers'));
+app.use('/api/trappers', trappersRouter);
 app.use('/api/sizeConversion', getLazyRouteHandler('./api/sizeConversion'));
 app.use('/api/seo', getLazyRouteHandler('./api/seo'));
 // Legacy SEO metrics endpoint for backward compatibility
