@@ -271,13 +271,13 @@ const startServer = async () => {
     // Connect to MongoDB Atlas
     await connectDB();
     
-    // Connect to Redis
+    // Connect to Redis (optional)
     let redisClient;
     try {
       redisClient = await connectRedis();
       console.log('✓ Redis client initialized');
     } catch (error) {
-      console.error('❌ Redis connection failed, continuing without caching:', error.message);
+      console.warn('⚠️ Redis not available, using fallback mode:', error.message);
       // Continue without Redis - the app should still work
       redisClient = null;
     }

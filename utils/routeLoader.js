@@ -28,10 +28,11 @@ function getLazyRouteHandler(routePath) {
       const fullPath = path.resolve(routePath);
       
       if (!fs.existsSync(fullPath)) {
-        console.warn(`Route file not found: ${routePath}`);
+        console.warn(`⚠️ Route file not found: ${routePath}`);
         return res.status(404).json({
           success: false,
-          message: 'Route not found'
+          message: 'Route not found',
+          route: routePath
         });
       }
 
