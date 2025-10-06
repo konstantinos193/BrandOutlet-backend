@@ -512,4 +512,458 @@ function generateCompetitorData() {
   return competitors;
 }
 
+// POST /api/ml/initialize - Initialize all ML models (replaces frontend initialization)
+router.post('/initialize', async (req, res) => {
+  try {
+    console.log('🤖 Initializing ML models...');
+    
+    // Initialize all models
+    await initializeMLModels();
+    
+    // Preload critical models
+    await preloadCriticalModels();
+    
+    // Warm up model cache
+    await warmUpModelCache();
+    
+    res.json({
+      success: true,
+      message: 'ML models initialized successfully',
+      data: {
+        models: Array.from(models.keys()),
+        cacheStatus: modelCache.size,
+        initializedAt: new Date().toISOString()
+      }
+    });
+  } catch (error) {
+    console.error('Error initializing ML models:', error);
+    res.status(500).json({
+      success: false,
+      error: 'Failed to initialize ML models',
+      message: error.message
+    });
+  }
+});
+
+// POST /api/ml/forecast/batch - Batch demand forecasting (replaces frontend batch processing)
+router.post('/forecast/batch', async (req, res) => {
+  try {
+    const { productIds, features, options = {} } = req.body;
+    
+    if (!productIds || !Array.isArray(productIds)) {
+      return res.status(400).json({
+        success: false,
+        message: 'Product IDs array is required'
+      });
+    }
+
+    console.log(`🔮 Processing batch forecast for ${productIds.length} products`);
+    
+    // Process in batches to avoid overwhelming the system
+    const batchSize = options.batchSize || 10;
+    const batches = [];
+    
+    for (let i = 0; i < productIds.length; i += batchSize) {
+      batches.push(productIds.slice(i, i + batchSize));
+    }
+    
+    const allForecasts = [];
+    
+    for (const batch of batches) {
+      const batchForecasts = await generateDemandForecasts(batch, features);
+      allForecasts.push(...batchForecasts);
+      
+      // Add small delay between batches to prevent overload
+      if (batches.indexOf(batch) < batches.length - 1) {
+        await new Promise(resolve => setTimeout(resolve, 100));
+      }
+    }
+    
+    res.json({
+      success: true,
+      data: {
+        forecasts: allForecasts,
+        totalProducts: productIds.length,
+        processedProducts: allForecasts.length,
+        batchCount: batches.length
+      }
+    });
+  } catch (error) {
+    console.error('Error in batch forecasting:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Batch forecasting failed',
+      error: error.message
+    });
+  }
+});
+
+// POST /api/ml/analysis/comprehensive - Comprehensive analysis (replaces frontend analytics)
+router.post('/analysis/comprehensive', async (req, res) => {
+  try {
+    const { 
+      category, 
+      timeRange, 
+      features,
+      includeSeasonal = true,
+      includeTrends = true,
+      includeRecommendations = true
+    } = req.body;
+    
+    console.log(`📊 Running comprehensive analysis for ${category}`);
+    
+    const analysis = {
+      category,
+      timeRange,
+      timestamp: new Date().toISOString(),
+      results: {}
+    };
+    
+    // Seasonal analysis
+    if (includeSeasonal) {
+      analysis.results.seasonal = await generateSeasonalTrends(category, timeRange, features);
+    }
+    
+    // Market trends
+    if (includeTrends) {
+      analysis.results.trends = await generateMarketTrendsData();
+    }
+    
+    // Recommendations
+    if (includeRecommendations) {
+      analysis.results.recommendations = await generateRecommendations('system', 20, features);
+    }
+    
+    // Performance metrics
+    analysis.results.performance = {
+      processingTime: Date.now() - new Date(analysis.timestamp).getTime(),
+      modelAccuracy: models.get('seasonal_analysis')?.accuracy || 0.82,
+      confidence: Math.random() * 0.3 + 0.7
+    };
+    
+    res.json({
+      success: true,
+      data: analysis
+    });
+  } catch (error) {
+    console.error('Error in comprehensive analysis:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Comprehensive analysis failed',
+      error: error.message
+    });
+  }
+});
+
+// POST /api/ml/recommendations/personalized - Personalized recommendations (replaces frontend logic)
+router.post('/recommendations/personalized', async (req, res) => {
+  try {
+    const { 
+      userId, 
+      limit = 10, 
+      features,
+      includeSimilarUsers = true,
+      includeTrending = true,
+      includeSeasonal = true
+    } = req.body;
+    
+    if (!userId) {
+      return res.status(400).json({
+        success: false,
+        message: 'User ID is required'
+      });
+    }
+
+    console.log(`🎯 Generating personalized recommendations for user ${userId}`);
+    
+    const recommendations = {
+      userId,
+      generatedAt: new Date().toISOString(),
+      recommendations: [],
+      metadata: {}
+    };
+    
+    // Get user preferences (in real app, this would come from database)
+    const userPreferences = await getUserPreferences(userId);
+    
+    // Generate different types of recommendations
+    const baseRecommendations = await generateRecommendations(userId, limit, features);
+    
+    if (includeSimilarUsers) {
+      const similarUserRecs = await getSimilarUserRecommendations(userId, limit);
+      recommendations.recommendations.push(...similarUserRecs);
+    }
+    
+    if (includeTrending) {
+      const trendingRecs = await getTrendingRecommendations(category, limit);
+      recommendations.recommendations.push(...trendingRecs);
+    }
+    
+    if (includeSeasonal) {
+      const seasonalRecs = await getSeasonalRecommendations(category, limit);
+      recommendations.recommendations.push(...seasonalRecs);
+    }
+    
+    // Deduplicate and rank recommendations
+    recommendations.recommendations = deduplicateAndRankRecommendations(
+      recommendations.recommendations, 
+      userPreferences
+    ).slice(0, limit);
+    
+    recommendations.metadata = {
+      totalGenerated: recommendations.recommendations.length,
+      userPreferences,
+      algorithm: 'hybrid_recommendation',
+      confidence: Math.random() * 0.3 + 0.7
+    };
+    
+    res.json({
+      success: true,
+      data: recommendations
+    });
+  } catch (error) {
+    console.error('Error generating personalized recommendations:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Personalized recommendations failed',
+      error: error.message
+    });
+  }
+});
+
+// POST /api/ml/ab-test/advanced - Advanced A/B testing (replaces frontend A/B testing)
+router.post('/ab-test/advanced', async (req, res) => {
+  try {
+    const { 
+      testName, 
+      variants, 
+      trafficSplit, 
+      metrics, 
+      duration,
+      targetAudience,
+      statisticalSignificance = 0.95,
+      minimumSampleSize = 100
+    } = req.body;
+    
+    if (!testName || !variants || !Array.isArray(variants)) {
+      return res.status(400).json({
+        success: false,
+        message: 'Test name and variants are required'
+      });
+    }
+
+    console.log(`🧪 Creating advanced A/B test: ${testName}`);
+    
+    const testId = `test_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+    
+    const abTest = {
+      testId,
+      testName,
+      variants,
+      trafficSplit: trafficSplit || variants.map(() => 1 / variants.length),
+      metrics: metrics || ['conversion_rate', 'click_through_rate', 'engagement'],
+      duration: duration || 7,
+      targetAudience: targetAudience || 'all',
+      statisticalSignificance,
+      minimumSampleSize,
+      status: 'running',
+      startDate: new Date().toISOString(),
+      endDate: new Date(Date.now() + (duration || 7) * 24 * 60 * 60 * 1000).toISOString(),
+      results: {},
+      participants: new Map(),
+      conversionEvents: new Map()
+    };
+
+    abTests.set(testId, abTest);
+    
+    // Start background monitoring
+    startABTestMonitoring(testId);
+    
+    res.json({
+      success: true,
+      data: {
+        testId,
+        testName,
+        status: 'running',
+        startDate: abTest.startDate,
+        endDate: abTest.endDate,
+        message: 'Advanced A/B test created and monitoring started'
+      }
+    });
+  } catch (error) {
+    console.error('Error creating advanced A/B test:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Advanced A/B test creation failed',
+      error: error.message
+    });
+  }
+});
+
+// GET /api/ml/status - Get ML system status (replaces frontend status checks)
+router.get('/status', (req, res) => {
+  try {
+    const status = {
+      system: {
+        modelsLoaded: models.size,
+        cacheSize: modelCache.size,
+        activeTests: abTests.size,
+        trainingJobs: trainingJobs.size,
+        uptime: process.uptime(),
+        memoryUsage: process.memoryUsage()
+      },
+      models: {},
+      performance: {
+        averageResponseTime: Math.random() * 100 + 50, // Mock data
+        cacheHitRate: Math.random() * 0.3 + 0.7,
+        errorRate: Math.random() * 0.05
+      }
+    };
+    
+    // Get status for each model
+    for (const [modelName, model] of models) {
+      status.models[modelName] = {
+        trained: model.trained,
+        accuracy: model.accuracy,
+        lastTrained: model.lastTrained,
+        algorithm: model.algorithm,
+        features: model.features
+      };
+    }
+    
+    res.json({
+      success: true,
+      data: status
+    });
+  } catch (error) {
+    console.error('Error getting ML status:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Failed to get ML status',
+      error: error.message
+    });
+  }
+});
+
+// Helper functions for enhanced ML processing
+
+// Preload critical models
+async function preloadCriticalModels() {
+  const criticalModels = ['demand_forecast', 'recommendation'];
+  
+  for (const modelName of criticalModels) {
+    if (models.has(modelName)) {
+      // Simulate model loading
+      await new Promise(resolve => setTimeout(resolve, 100));
+      modelCache.set(modelName, { loaded: true, timestamp: Date.now() });
+    }
+  }
+}
+
+// Warm up model cache
+async function warmUpModelCache() {
+  // Simulate cache warming
+  for (const [modelName] of models) {
+    modelCache.set(modelName, { 
+      loaded: true, 
+      timestamp: Date.now(),
+      warmUpData: generateMockData()
+    });
+  }
+}
+
+// Get user preferences
+async function getUserPreferences(userId) {
+  // In real app, this would query the database
+  return {
+    userId,
+    preferences: {
+      categories: ['sneakers', 'clothing'],
+      brands: ['Nike', 'Adidas'],
+      priceRange: { min: 50, max: 500 },
+      lastActivity: new Date().toISOString()
+    }
+  };
+}
+
+// Get similar user recommendations
+async function getSimilarUserRecommendations(userId, limit) {
+  const recommendations = [];
+  
+  for (let i = 0; i < limit; i++) {
+    recommendations.push({
+      productId: `similar_${i}`,
+      productName: `Similar Product ${i}`,
+      score: Math.random() * 0.3 + 0.7,
+      reason: 'Similar users also liked',
+      price: Math.floor(Math.random() * 200) + 50,
+      brand: ['Nike', 'Adidas', 'Supreme'][Math.floor(Math.random() * 3)]
+    });
+  }
+  
+  return recommendations;
+}
+
+// Get trending recommendations
+async function getTrendingRecommendations(category, limit) {
+  const recommendations = [];
+  
+  for (let i = 0; i < limit; i++) {
+    recommendations.push({
+      productId: `trending_${i}`,
+      productName: `Trending Product ${i}`,
+      score: Math.random() * 0.2 + 0.8,
+      reason: 'Trending now',
+      price: Math.floor(Math.random() * 300) + 100,
+      brand: ['Nike', 'Adidas', 'Supreme'][Math.floor(Math.random() * 3)]
+    });
+  }
+  
+  return recommendations;
+}
+
+// Get seasonal recommendations
+async function getSeasonalRecommendations(category, limit) {
+  const recommendations = [];
+  
+  for (let i = 0; i < limit; i++) {
+    recommendations.push({
+      productId: `seasonal_${i}`,
+      productName: `Seasonal Product ${i}`,
+      score: Math.random() * 0.25 + 0.75,
+      reason: 'Perfect for this season',
+      price: Math.floor(Math.random() * 250) + 75,
+      brand: ['Nike', 'Adidas', 'Supreme'][Math.floor(Math.random() * 3)]
+    });
+  }
+  
+  return recommendations;
+}
+
+// Deduplicate and rank recommendations
+function deduplicateAndRankRecommendations(recommendations, userPreferences) {
+  // Remove duplicates based on productId
+  const unique = recommendations.filter((rec, index, self) => 
+    index === self.findIndex(r => r.productId === rec.productId)
+  );
+  
+  // Sort by score
+  return unique.sort((a, b) => b.score - a.score);
+}
+
+// Start A/B test monitoring
+function startABTestMonitoring(testId) {
+  // In real app, this would start background monitoring
+  console.log(`🔍 Started monitoring for A/B test ${testId}`);
+}
+
+// Generate mock data for cache warming
+function generateMockData() {
+  return {
+    sampleSize: Math.floor(Math.random() * 1000) + 100,
+    accuracy: Math.random() * 0.2 + 0.8,
+    lastUpdated: new Date().toISOString()
+  };
+}
+
 module.exports = router;

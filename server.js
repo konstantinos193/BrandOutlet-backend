@@ -34,7 +34,9 @@ const heavyRoutes = [
   './api/dashboard',
   './api/notifications',
   './api/customOrders',
-  './api/ml'
+  './api/ml',
+  './api/validation',
+  './api/file-processing'
 ];
 const { connectDB } = require('./config/database');
 
