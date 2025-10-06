@@ -220,7 +220,15 @@ const startServer = async () => {
     await connectDB();
     
     // Connect to Redis
-    const redisClient = await connectRedis();
+    let redisClient;
+    try {
+      redisClient = await connectRedis();
+      console.log('✓ Redis client initialized');
+    } catch (error) {
+      console.error('❌ Redis connection failed, continuing without caching:', error.message);
+      // Continue without Redis - the app should still work
+      redisClient = null;
+    }
     
     // Preload critical routes for faster initial response
     await preloadCriticalRoutes(criticalRoutes);

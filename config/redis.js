@@ -69,18 +69,34 @@ function getRedisClient() {
 async function connectRedis() {
   try {
     const redisClient = getRedisClient();
+    
+    // Check if already connected
+    if (redisClient.isOpen) {
+      console.log('✓ Redis already connected');
+      return redisClient;
+    }
+    
     await redisClient.connect();
+    console.log('✓ Redis connected successfully');
     return redisClient;
   } catch (error) {
     console.error('Redis connection failed:', error);
+    
+    // In production, we might want to fail fast
+    if (process.env.NODE_ENV === 'production') {
+      throw error;
+    }
+    
     // Return a mock client for development
+    console.log('⚠️ Using mock Redis client for development');
     return {
       get: () => Promise.resolve(null),
       set: () => Promise.resolve('OK'),
       del: () => Promise.resolve(1),
       exists: () => Promise.resolve(0),
       expire: () => Promise.resolve(1),
-      disconnect: () => Promise.resolve()
+      disconnect: () => Promise.resolve(),
+      isOpen: true
     };
   }
 }

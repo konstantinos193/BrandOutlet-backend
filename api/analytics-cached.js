@@ -1,7 +1,29 @@
 const express = require('express');
 const router = express.Router();
-const cacheService = require('../services/cacheService');
-const analyticsService = require('../services/analyticsService');
+
+// Try to load cache service, fallback if Redis is not available
+let cacheService;
+let analyticsService;
+
+try {
+  cacheService = require('../services/cacheService');
+  analyticsService = require('../services/analyticsService');
+} catch (error) {
+  console.warn('⚠️ Cache service not available, using fallback:', error.message);
+  // Fallback cache service
+  cacheService = {
+    cacheAnalytics: async (params, fetchFunction) => {
+      return await fetchFunction();
+    }
+  };
+  analyticsService = {
+    getDashboardMetrics: async () => ({ message: 'Analytics service not available' }),
+    getPerformanceTrends: async () => ({ message: 'Analytics service not available' }),
+    getRevenueAnalytics: async () => ({ message: 'Analytics service not available' }),
+    getUserAnalytics: async () => ({ message: 'Analytics service not available' }),
+    getProductAnalytics: async () => ({ message: 'Analytics service not available' })
+  };
+}
 
 // GET /api/analytics/dashboard - Get dashboard analytics with caching
 router.get('/dashboard', async (req, res) => {
