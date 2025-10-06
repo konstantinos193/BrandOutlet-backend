@@ -158,6 +158,57 @@ app.get(healthCheckPath, (req, res) => {
   res.status(200).json(healthData);
 });
 
+// Direct analytics tracking endpoint (bypasses route loader)
+let analyticsEvents = [];
+const maxEvents = 10000;
+
+app.post('/api/analytics/track', (req, res) => {
+  try {
+    const event = req.body;
+    
+    // Validate required fields
+    if (!event.eventName || !event.timestamp) {
+      return res.status(400).json({
+        success: false,
+        error: 'Missing required fields: eventName, timestamp'
+      });
+    }
+
+    // Add metadata
+    const trackedEvent = {
+      ...event,
+      id: Date.now() + Math.random(),
+      receivedAt: new Date().toISOString(),
+      userAgent: req.headers['user-agent'],
+      ip: req.ip || req.connection.remoteAddress
+    };
+
+    // Store event
+    analyticsEvents.push(trackedEvent);
+    
+    // Keep only last maxEvents
+    if (analyticsEvents.length > maxEvents) {
+      analyticsEvents.splice(0, analyticsEvents.length - maxEvents);
+    }
+
+    console.log(`📊 Analytics event tracked: ${event.eventName}`);
+
+    res.json({
+      success: true,
+      message: 'Event tracked successfully',
+      eventId: trackedEvent.id
+    });
+
+  } catch (error) {
+    console.error('Error tracking analytics event:', error);
+    res.status(500).json({
+      success: false,
+      error: 'Failed to track event',
+      message: error.message
+    });
+  }
+});
+
 // API routes - Critical routes loaded immediately
 app.use('/api/user-preferences', getLazyRouteHandler('./api/userPreferences'));
 app.use('/api/analytics', getLazyRouteHandler('./api/analytics-cached')); // Use cached analytics
