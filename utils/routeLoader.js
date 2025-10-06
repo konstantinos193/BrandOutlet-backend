@@ -24,8 +24,9 @@ function getLazyRouteHandler(routePath) {
         return route(req, res, next);
       }
 
-      // Load route dynamically
-      const fullPath = path.resolve(routePath);
+      // Load route dynamically - resolve relative to backend directory
+      const backendDir = path.dirname(require.main.filename);
+      const fullPath = path.resolve(backendDir, routePath);
       
       if (!fs.existsSync(fullPath)) {
         console.warn(`⚠️ Route file not found: ${routePath}`);
@@ -68,7 +69,8 @@ async function preloadCriticalRoutes(routes) {
   
   for (const routePath of routes) {
     try {
-      const fullPath = path.resolve(routePath);
+      const backendDir = path.dirname(require.main.filename);
+      const fullPath = path.resolve(backendDir, routePath);
       
       if (fs.existsSync(fullPath)) {
         // Clear require cache
@@ -107,7 +109,8 @@ function loadRouteOnDemand(routePath) {
 
     // Load route dynamically
     try {
-      const fullPath = path.resolve(routePath);
+      const backendDir = path.dirname(require.main.filename);
+      const fullPath = path.resolve(backendDir, routePath);
       
       if (!fs.existsSync(fullPath)) {
         return res.status(404).json({
