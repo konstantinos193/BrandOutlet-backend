@@ -269,7 +269,7 @@ app.use('/api/seo', getLazyRouteHandler('./api/seo'));
 // Legacy SEO metrics endpoint for backward compatibility
 app.use('/api/seo-metrics', getLazyRouteHandler('./api/seo'));
 // Seed routes for database initialization
-app.use('/api/seed', getLazyRouteHandler('./api/seed'));
+app.use('/api/seed', getLazyRouteHandler('./api/seed.js'));
 console.log('✅ All additional routes loaded');
 
 // Error handling middleware
