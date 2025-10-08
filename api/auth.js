@@ -70,7 +70,10 @@ router.post('/login', async (req, res) => {
     }
 
     // Update last login
-    await admin.updateLastLogin();
+    await Admin.updateOne(
+      { _id: admin._id },
+      { lastLogin: new Date() }
+    );
 
     // Generate JWT token
     const token = jwt.sign(
