@@ -12,7 +12,9 @@ const authRateLimit = (req, res, next) => {
     userId: req.user?.id,
     userRole: req.user?.role,
     isAuthenticated,
-    isAdmin
+    isAdmin,
+    authHeader: req.headers.authorization ? 'Present' : 'Missing',
+    tokenPreview: req.headers.authorization ? req.headers.authorization.substring(0, 20) + '...' : 'None'
   });
   
   if (isAdmin) {

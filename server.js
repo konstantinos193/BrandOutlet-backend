@@ -262,7 +262,8 @@ app.use('/api/ml', getLazyRouteHandler('./api/ml'));
 // Additional routes with lazy loading
 console.log('🔧 Loading additional API routes...');
 app.use('/api/variants', getLazyRouteHandler('./api/variants'));
-app.use('/api/top-selling', getLazyRouteHandler('./api/topSelling'));
+// Move top-selling to admin routes since it's used in admin dashboard
+app.use('/api/admin/top-selling', getLazyRouteHandler('./api/topSelling'));
 app.use('/api/data-driven-strategies', getLazyRouteHandler('./api/dataDrivenStrategies'));
 app.use('/api/search', getLazyRouteHandler('./api/advancedSearch'));
 app.use('/api/orders', getLazyRouteHandler('./api/orders'));
