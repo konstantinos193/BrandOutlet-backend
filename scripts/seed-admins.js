@@ -1,6 +1,6 @@
-const mongoose = require('mongoose');
 const bcrypt = require('bcryptjs');
 const Admin = require('../models/Admin');
+const { connectDB } = require('../config/database');
 require('dotenv').config();
 
 // Admin credentials to seed
@@ -21,9 +21,8 @@ const adminUsers = [
 
 async function seedAdmins() {
   try {
-    // Connect to MongoDB
-    const mongoUri = process.env.MONGODB_URI || 'mongodb://localhost:27017/brandoutlet';
-    await mongoose.connect(mongoUri);
+    // Connect to MongoDB using existing database config
+    await connectDB();
     console.log('✅ Connected to MongoDB');
 
     // Clear existing admins
@@ -34,12 +33,11 @@ async function seedAdmins() {
     for (const adminData of adminUsers) {
       const hashedPassword = await bcrypt.hash(adminData.password, 12);
       
-      const admin = new Admin({
+      const admin = await Admin.create({
         ...adminData,
         password: hashedPassword
       });
 
-      await admin.save();
       console.log(`✅ Created admin: ${adminData.username} (${adminData.role})`);
     }
 
@@ -52,8 +50,7 @@ async function seedAdmins() {
   } catch (error) {
     console.error('❌ Error seeding admins:', error);
   } finally {
-    await mongoose.disconnect();
-    console.log('🔌 Disconnected from MongoDB');
+    console.log('🔌 Seeding completed');
     process.exit(0);
   }
 }

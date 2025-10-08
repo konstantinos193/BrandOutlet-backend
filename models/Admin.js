@@ -1,56 +1,54 @@
-const mongoose = require('mongoose');
+const { getCollection } = require('../config/database');
 
-const adminSchema = new mongoose.Schema({
-  username: {
-    type: String,
-    required: true,
-    unique: true,
-    trim: true
-  },
-  email: {
-    type: String,
-    required: true,
-    unique: true,
-    trim: true,
-    lowercase: true
-  },
-  password: {
-    type: String,
-    required: true
-  },
-  role: {
-    type: String,
-    enum: ['admin', 'super_admin'],
-    default: 'admin'
-  },
-  isActive: {
-    type: Boolean,
-    default: true
-  },
-  lastLogin: {
-    type: Date,
-    default: null
-  },
-  createdAt: {
-    type: Date,
-    default: Date.now
-  },
-  updatedAt: {
-    type: Date,
-    default: Date.now
+class Admin {
+  constructor(data) {
+    this.username = data.username;
+    this.email = data.email;
+    this.password = data.password;
+    this.role = data.role || 'admin';
+    this.isActive = data.isActive !== undefined ? data.isActive : true;
+    this.lastLogin = data.lastLogin || null;
+    this.createdAt = data.createdAt || new Date();
+    this.updatedAt = data.updatedAt || new Date();
   }
-});
 
-// Update the updatedAt field before saving
-adminSchema.pre('save', function(next) {
-  this.updatedAt = Date.now();
-  next();
-});
+  static async create(adminData) {
+    const collection = getCollection('admins');
+    const admin = new Admin(adminData);
+    const result = await collection.insertOne(admin);
+    return { ...admin, _id: result.insertedId };
+  }
 
-// Method to update last login
-adminSchema.methods.updateLastLogin = function() {
-  this.lastLogin = new Date();
-  return this.save();
-};
+  static async findOne(query) {
+    const collection = getCollection('admins');
+    return await collection.findOne(query);
+  }
 
-module.exports = mongoose.model('Admin', adminSchema);
+  static async findById(id) {
+    const collection = getCollection('admins');
+    return await collection.findOne({ _id: id });
+  }
+
+  static async updateOne(query, update) {
+    const collection = getCollection('admins');
+    update.updatedAt = new Date();
+    return await collection.updateOne(query, { $set: update });
+  }
+
+  static async deleteMany(query) {
+    const collection = getCollection('admins');
+    return await collection.deleteMany(query);
+  }
+
+  async updateLastLogin() {
+    const collection = getCollection('admins');
+    this.lastLogin = new Date();
+    this.updatedAt = new Date();
+    return await collection.updateOne(
+      { _id: this._id },
+      { $set: { lastLogin: this.lastLogin, updatedAt: this.updatedAt } }
+    );
+  }
+}
+
+module.exports = Admin;
