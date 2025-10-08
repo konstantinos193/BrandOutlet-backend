@@ -40,6 +40,11 @@ class Admin {
     return await collection.deleteMany(query);
   }
 
+  static async findMany(query) {
+    const collection = getCollection('admins');
+    return await collection.find(query).toArray();
+  }
+
   async updateLastLogin() {
     const collection = getCollection('admins');
     this.lastLogin = new Date();
