@@ -146,5 +146,8 @@ router.get('/me', verifyToken, (req, res) => {
   });
 });
 
-// Export the verifyToken middleware for use in other routes
-module.exports = { router, verifyToken };
+// Export the router for lazy loading
+module.exports = router;
+
+// Also export verifyToken for use in other routes
+module.exports.verifyToken = verifyToken;

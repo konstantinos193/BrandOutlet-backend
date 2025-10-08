@@ -183,4 +183,8 @@ function convertSizeToEU(gender, size, region, type = 'clothing') {
   return genderMap[size] || size; // Fallback to original if no conversion found
 }
 
-module.exports = { router, convertSizeToEU };
+// Export the router for lazy loading
+module.exports = router;
+
+// Also export convertSizeToEU for use in other modules
+module.exports.convertSizeToEU = convertSizeToEU;

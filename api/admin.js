@@ -5,7 +5,8 @@ const { getDB } = require('../config/database');
 const analyticsService = require('../services/analyticsService');
 const aiInsightsService = require('../services/aiInsightsService');
 const CustomOrder = require('../models/CustomOrder');
-const { verifyToken } = require('./auth');
+const authModule = require('./auth');
+const { verifyToken } = authModule;
 
 // Apply authentication middleware to all admin routes
 router.use(verifyToken);

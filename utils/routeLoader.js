@@ -26,7 +26,13 @@ function getLazyRouteHandler(routePath) {
 
       // Load route dynamically - resolve relative to backend directory
       const backendDir = path.dirname(require.main.filename) || process.cwd();
-      const fullPath = path.resolve(backendDir, routePath);
+      let fullPath = path.resolve(backendDir, routePath);
+      
+      // If file doesn't exist, try with .js extension
+      if (!fs.existsSync(fullPath) && !routePath.endsWith('.js')) {
+        const pathWithExt = routePath + '.js';
+        fullPath = path.resolve(backendDir, pathWithExt);
+      }
       
       if (!fs.existsSync(fullPath)) {
         console.warn(`⚠️ Route file not found: ${routePath}`);
@@ -70,7 +76,13 @@ async function preloadCriticalRoutes(routes) {
   for (const routePath of routes) {
     try {
       const backendDir = path.dirname(require.main.filename) || process.cwd();
-      const fullPath = path.resolve(backendDir, routePath);
+      let fullPath = path.resolve(backendDir, routePath);
+      
+      // If file doesn't exist, try with .js extension
+      if (!fs.existsSync(fullPath) && !routePath.endsWith('.js')) {
+        const pathWithExt = routePath + '.js';
+        fullPath = path.resolve(backendDir, pathWithExt);
+      }
       
       if (fs.existsSync(fullPath)) {
         // Clear require cache
@@ -110,7 +122,13 @@ function loadRouteOnDemand(routePath) {
     // Load route dynamically
     try {
       const backendDir = path.dirname(require.main.filename) || process.cwd();
-      const fullPath = path.resolve(backendDir, routePath);
+      let fullPath = path.resolve(backendDir, routePath);
+      
+      // If file doesn't exist, try with .js extension
+      if (!fs.existsSync(fullPath) && !routePath.endsWith('.js')) {
+        const pathWithExt = routePath + '.js';
+        fullPath = path.resolve(backendDir, pathWithExt);
+      }
       
       if (!fs.existsSync(fullPath)) {
         return res.status(404).json({
