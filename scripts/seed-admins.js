@@ -9,7 +9,7 @@ const adminUsers = [
     username: 'konstantinos193',
     email: 'konstantinos193@brandoutlet.com',
     password: 'Kk.25102002?',
-    role: 'super_admin'
+    role: 'admin'
   },
   {
     username: 'JordanJoestar',
