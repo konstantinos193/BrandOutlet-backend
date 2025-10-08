@@ -2,13 +2,7 @@ const express = require('express');
 const router = express.Router();
 const jwt = require('jsonwebtoken');
 const bcrypt = require('bcryptjs');
-
-// Admin credentials (in production, these should be stored securely in environment variables)
-const ADMIN_CREDENTIALS = {
-  username: process.env.ADMIN_USERNAME || 'admin',
-  password: process.env.ADMIN_PASSWORD || 'admin123',
-  email: process.env.ADMIN_EMAIL || 'admin@brandoutlet.com'
-};
+const Admin = require('../models/Admin');
 
 // JWT secret (in production, use a strong secret from environment variables)
 const JWT_SECRET = process.env.JWT_SECRET || 'your-super-secret-jwt-key-change-in-production';
@@ -51,18 +45,23 @@ router.post('/login', async (req, res) => {
       });
     }
 
-    // Check credentials
-    if (username !== ADMIN_CREDENTIALS.username) {
-      console.log('❌ Invalid username:', username);
+    // Find admin by username
+    const admin = await Admin.findOne({ 
+      username: username,
+      isActive: true 
+    });
+
+    if (!admin) {
+      console.log('❌ Admin not found:', username);
       return res.status(401).json({
         success: false,
         error: 'Invalid credentials'
       });
     }
 
-    // In a real application, you would hash the stored password and compare
-    // For now, we'll do a simple comparison
-    if (password !== ADMIN_CREDENTIALS.password) {
+    // Verify password
+    const isPasswordValid = await bcrypt.compare(password, admin.password);
+    if (!isPasswordValid) {
       console.log('❌ Invalid password for user:', username);
       return res.status(401).json({
         success: false,
@@ -70,13 +69,16 @@ router.post('/login', async (req, res) => {
       });
     }
 
+    // Update last login
+    await admin.updateLastLogin();
+
     // Generate JWT token
     const token = jwt.sign(
       { 
-        id: 'admin',
-        username: ADMIN_CREDENTIALS.username,
-        email: ADMIN_CREDENTIALS.email,
-        role: 'admin'
+        id: admin._id,
+        username: admin.username,
+        email: admin.email,
+        role: admin.role
       },
       JWT_SECRET,
       { expiresIn: '24h' }
@@ -89,10 +91,10 @@ router.post('/login', async (req, res) => {
       data: {
         token,
         user: {
-          id: 'admin',
-          username: ADMIN_CREDENTIALS.username,
-          email: ADMIN_CREDENTIALS.email,
-          role: 'admin'
+          id: admin._id,
+          username: admin.username,
+          email: admin.email,
+          role: admin.role
         }
       },
       message: 'Login successful',
