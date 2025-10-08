@@ -6,14 +6,26 @@ const authRateLimit = (req, res, next) => {
   const isAuthenticated = req.user && req.user.id;
   const isAdmin = req.user && req.user.role === 'admin';
   
+  console.log('🔍 AuthRateLimit Debug:', {
+    path: req.path,
+    hasUser: !!req.user,
+    userId: req.user?.id,
+    userRole: req.user?.role,
+    isAuthenticated,
+    isAdmin
+  });
+  
   if (isAdmin) {
     // Admin users get the most lenient rate limit
+    console.log('👑 Applying admin rate limit (500 requests)');
     return rateLimits.lenient(req, res, next);
   } else if (isAuthenticated) {
     // Regular authenticated users get moderate rate limit
+    console.log('✅ Applying authenticated rate limit (200 requests)');
     return rateLimits.moderate(req, res, next);
   } else {
     // Unauthenticated users get strict rate limit
+    console.log('❌ Applying strict rate limit (20 requests)');
     return rateLimits.strict(req, res, next);
   }
 };

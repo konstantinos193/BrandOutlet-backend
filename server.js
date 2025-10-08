@@ -130,8 +130,16 @@ app.use('/api/health', rateLimits.public);
 app.use('/api/test', rateLimits.public);
 app.use('/api/analytics/track', rateLimits.public);
 
-// Strict rate limiting for unauthenticated API routes
-app.use('/api/', rateLimits.strict);
+// Apply strict rate limiting to unauthenticated routes only
+// Skip admin routes as they have their own authentication and rate limiting
+app.use('/api/', (req, res, next) => {
+  // Skip rate limiting for admin routes (they have their own auth + rate limiting)
+  if (req.path.startsWith('/admin')) {
+    return next();
+  }
+  // Apply strict rate limiting to other routes
+  return rateLimits.strict(req, res, next);
+});
 
 // Logging
 if (process.env.ENABLE_REQUEST_LOGGING !== 'false') {
