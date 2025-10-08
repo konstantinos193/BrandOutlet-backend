@@ -5,6 +5,10 @@ const { getDB } = require('../config/database');
 const analyticsService = require('../services/analyticsService');
 const aiInsightsService = require('../services/aiInsightsService');
 const CustomOrder = require('../models/CustomOrder');
+const { verifyToken } = require('./auth');
+
+// Apply authentication middleware to all admin routes
+router.use(verifyToken);
 
 // Helper function to get comprehensive dashboard data
 const getDashboardData = async () => {

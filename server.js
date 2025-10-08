@@ -25,7 +25,8 @@ const criticalRoutes = [
   './api/products',
   './api/cart',
   './api/admin',
-  './api/stats'
+  './api/stats',
+  './api/auth'
 ];
 
 // Heavy routes that can be loaded on-demand
@@ -233,6 +234,7 @@ app.use('/api/page-tracking', pageTrackingRouter);
 app.use('/api/products', getLazyRouteHandler('./api/products-cached')); // Use cached products
 app.use('/api/cart', getLazyRouteHandler('./api/cart'));
 app.use('/api/admin', getLazyRouteHandler('./api/admin')); // Admin dashboard
+app.use('/api/auth', getLazyRouteHandler('./api/auth')); // Authentication
 console.log('✅ Critical routes loaded');
 
 // Admin route loaded with critical routes (moved above)
@@ -316,6 +318,7 @@ const startServer = async () => {
       console.log(`👤 User Preferences API: http://localhost:${PORT}/api/user-preferences`);
       console.log(`📈 Page Tracking API: http://localhost:${PORT}/api/page-tracking`);
       console.log(`🔧 Admin API: http://localhost:${PORT}/api/admin`);
+      console.log(`🔐 Auth API: http://localhost:${PORT}/api/auth`);
       console.log(`🏥 Health Check: http://localhost:${PORT}/health`);
       console.log(`⚡ Code splitting enabled - heavy routes loaded on-demand`);
       console.log(`📦 Redis caching enabled - API queries cached for performance`);
