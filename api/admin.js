@@ -7,9 +7,13 @@ const aiInsightsService = require('../services/aiInsightsService');
 const CustomOrder = require('../models/CustomOrder');
 const authModule = require('./auth');
 const { verifyToken } = authModule;
+const authRateLimit = require('../middleware/authRateLimit');
 
 // Apply authentication middleware to all admin routes
 router.use(verifyToken);
+
+// Apply authenticated rate limiting to admin routes
+router.use(authRateLimit);
 
 // Helper function to get comprehensive dashboard data
 const getDashboardData = async () => {

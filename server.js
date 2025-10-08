@@ -122,16 +122,16 @@ app.use(cors({
   optionsSuccessStatus: 200 // Some legacy browsers choke on 204
 }));
 
-// Rate limiting
-const limiter = rateLimit({
-  windowMs: parseInt(process.env.RATE_LIMIT_WINDOW_MS) || 15 * 60 * 1000, // 15 minutes
-  max: parseInt(process.env.RATE_LIMIT_MAX) || 100, // limit each IP to 100 requests per windowMs
-  message: 'Too many requests from this IP, please try again later.',
-  standardHeaders: true, // Return rate limit info in the `RateLimit-*` headers
-  legacyHeaders: false, // Disable the `X-RateLimit-*` headers
-  trustProxy: true // Trust proxy for accurate IP detection
-});
-app.use('/api/', limiter);
+// Import custom rate limiting middleware
+const rateLimits = require('./middleware/rateLimiting');
+
+// Apply different rate limits based on route
+app.use('/api/health', rateLimits.public);
+app.use('/api/test', rateLimits.public);
+app.use('/api/analytics/track', rateLimits.public);
+
+// Strict rate limiting for unauthenticated API routes
+app.use('/api/', rateLimits.strict);
 
 // Logging
 if (process.env.ENABLE_REQUEST_LOGGING !== 'false') {
