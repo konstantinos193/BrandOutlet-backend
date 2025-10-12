@@ -179,7 +179,8 @@ app.use('/api/', (req, res, next) => {
       req.path.startsWith('/refunds') ||
       req.path.startsWith('/inventory') ||
       req.path.startsWith('/suppliers') ||
-      req.path.startsWith('/seo')) {
+      req.path.startsWith('/seo') ||
+      req.path.startsWith('/page-tracking')) {
     return next();
   }
   // Apply strict rate limiting to other routes

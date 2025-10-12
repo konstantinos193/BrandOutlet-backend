@@ -3,6 +3,8 @@ const Joi = require('joi');
 const { v4: uuidv4 } = require('uuid');
 const { getTrackingData } = require('../utils/geolocation');
 const { connectDB } = require('../config/database');
+const authModule = require('./auth');
+const { verifyToken } = authModule;
 const router = express.Router();
 
 let db = null;
@@ -210,8 +212,8 @@ router.post('/exit', async (req, res) => {
   }
 });
 
-// GET /api/page-tracking/analytics - Get page analytics
-router.get('/analytics', async (req, res) => {
+// GET /api/page-tracking/analytics - Get page analytics (Admin only)
+router.get('/analytics', verifyToken, async (req, res) => {
   try {
     const { timeframe = '7d', page } = req.query;
     
@@ -252,8 +254,8 @@ router.get('/analytics', async (req, res) => {
   }
 });
 
-// GET /api/page-tracking/popular-pages - Get most popular pages
-router.get('/popular-pages', async (req, res) => {
+// GET /api/page-tracking/popular-pages - Get most popular pages (Admin only)
+router.get('/popular-pages', verifyToken, async (req, res) => {
   try {
     const { limit = 10 } = req.query;
     
@@ -285,7 +287,7 @@ router.get('/popular-pages', async (req, res) => {
 });
 
 // GET /api/page-tracking/export - Export page tracking data
-router.get('/export', async (req, res) => {
+router.get('/export', verifyToken, async (req, res) => {
   try {
     const csvHeader = 'ID,Page,Path,Referrer,Timestamp,Duration,IP Address,User Agent\n';
     const csvData = pageViews.map(view => 
