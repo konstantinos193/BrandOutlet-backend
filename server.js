@@ -159,6 +159,29 @@ app.use('/api/', (req, res, next) => {
   if (req.path.startsWith('/stats')) {
     return next();
   }
+  // Skip rate limiting for admin-related analytics endpoints
+  if (req.path.startsWith('/unified-analytics') || 
+      req.path.startsWith('/forecasting') || 
+      req.path.startsWith('/real-time') || 
+      req.path.startsWith('/insights') || 
+      req.path.startsWith('/seasonal-trends') || 
+      req.path.startsWith('/product-management') || 
+      req.path.startsWith('/user-management') || 
+      req.path.startsWith('/notifications') || 
+      req.path.startsWith('/custom-orders') || 
+      req.path.startsWith('/performance-analytics') || 
+      req.path.startsWith('/ml') ||
+      req.path.startsWith('/variants') ||
+      req.path.startsWith('/data-driven-strategies') ||
+      req.path.startsWith('/search') ||
+      req.path.startsWith('/orders') ||
+      req.path.startsWith('/payments') ||
+      req.path.startsWith('/refunds') ||
+      req.path.startsWith('/inventory') ||
+      req.path.startsWith('/suppliers') ||
+      req.path.startsWith('/seo')) {
+    return next();
+  }
   // Apply strict rate limiting to other routes
   return rateLimits.strict(req, res, next);
 });
