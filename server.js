@@ -39,7 +39,6 @@ const heavyRoutes = [
   './api/seasonalTrends',
   './api/productManagement',
   './api/userManagement',
-  './api/dashboard',
   './api/notifications',
   './api/customOrders',
   './api/ml',
@@ -262,7 +261,6 @@ app.use('/api/insights', getLazyRouteHandler('./api/insights'));
 app.use('/api/seasonal-trends', getLazyRouteHandler('./api/seasonalTrends'));
 app.use('/api/product-management', getLazyRouteHandler('./api/productManagement'));
 app.use('/api/user-management', getLazyRouteHandler('./api/userManagement'));
-app.use('/api/dashboard', getLazyRouteHandler('./api/dashboard'));
 app.use('/api/notifications', getLazyRouteHandler('./api/notifications'));
 app.use('/api/custom-orders', getLazyRouteHandler('./api/customOrders'));
 app.use('/api/performance-analytics', getLazyRouteHandler('./api/performance-analytics'));
@@ -299,14 +297,10 @@ app.use((err, req, res, next) => {
   });
 });
 
-// Serve Moondalator font
-app.get('/fonts/moondalator/Moogalator-yYJr3.ttf', (req, res) => {
-  res.setHeader('Content-Type', 'font/ttf');
-  res.setHeader('Access-Control-Allow-Origin', '*');
-  res.sendFile(path.join(__dirname, '../BrandOutlet-Frontend/public/fonts/moondalator/Moogalator-yYJr3.ttf'));
-});
+// Serve fonts from backend public directory
+app.use('/fonts', express.static(path.join(__dirname, 'public/fonts')));
 
-// Root route - Ultra cheeky landing page for accidental visitors
+// Root route - Dark and dank landing page for accidental visitors
 app.get('/', (req, res) => {
   res.send(`
 <!DOCTYPE html>
@@ -314,12 +308,18 @@ app.get('/', (req, res) => {
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>BrandOutlet Backend - Oops! 🎭</title>
+    <title>BrandOutlet Backend - Access Denied</title>
     <style>
-        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap');
         @font-face {
             font-family: 'Moondalator';
             src: url('/fonts/moondalator/Moogalator-yYJr3.ttf') format('truetype');
+            font-weight: normal;
+            font-style: normal;
+        }
+        
+        @font-face {
+            font-family: 'SuperCacao';
+            src: url('/fonts/supercocoa/SuperCacao-qZr8x.ttf') format('truetype');
             font-weight: normal;
             font-style: normal;
         }
@@ -331,163 +331,190 @@ app.get('/', (req, res) => {
         }
         
         body {
-            font-family: 'Inter', sans-serif;
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            font-family: 'SuperCacao', monospace;
+            background: linear-gradient(135deg, #0a0a0a 0%, #1a1a1a 50%, #2d2d2d 100%);
             min-height: 100vh;
             display: flex;
             align-items: center;
             justify-content: center;
+            color: #00ff00;
             overflow: hidden;
             position: relative;
         }
         
-        .container {
-            text-align: center;
-            z-index: 10;
-            position: relative;
-            max-width: 800px;
-            padding: 2rem;
-        }
-        
-        .logo {
-            font-family: 'Moondalator', 'Inter', sans-serif;
-            font-size: 4rem;
-            font-weight: 700;
-            color: #fff;
-            text-shadow: 0 0 30px rgba(255, 255, 255, 0.5);
-            margin-bottom: 1rem;
-            animation: glow 2s ease-in-out infinite alternate;
-        }
-        
-        @keyframes glow {
-            from { text-shadow: 0 0 30px rgba(255, 255, 255, 0.5); }
-            to { text-shadow: 0 0 40px rgba(255, 255, 255, 0.8), 0 0 60px rgba(255, 255, 255, 0.3); }
-        }
-        
-        .subtitle {
-            font-size: 1.5rem;
-            color: #f0f0f0;
-            margin-bottom: 2rem;
-            font-weight: 300;
-        }
-        
-        .message {
-            background: rgba(255, 255, 255, 0.1);
-            backdrop-filter: blur(10px);
-            border-radius: 20px;
-            padding: 2rem;
-            margin: 2rem 0;
-            border: 1px solid rgba(255, 255, 255, 0.2);
-            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.1);
-        }
-        
-        .message h2 {
-            color: #fff;
-            font-size: 2rem;
-            margin-bottom: 1rem;
-            font-weight: 600;
-        }
-        
-        .message p {
-            color: #e0e0e0;
-            font-size: 1.1rem;
-            line-height: 1.6;
-            margin-bottom: 1rem;
-        }
-        
-        .emoji {
-            font-size: 3rem;
-            margin: 1rem 0;
-            animation: bounce 2s infinite;
-        }
-        
-        @keyframes bounce {
-            0%, 20%, 50%, 80%, 100% { transform: translateY(0); }
-            40% { transform: translateY(-20px); }
-            60% { transform: translateY(-10px); }
-        }
-        
-        .warning {
-            background: rgba(255, 193, 7, 0.2);
-            border: 1px solid rgba(255, 193, 7, 0.3);
-            border-radius: 10px;
-            padding: 1rem;
-            margin: 1rem 0;
-            color: #fff3cd;
-        }
-        
-        .warning strong {
-            color: #ffc107;
-        }
-        
-        .floating-shapes {
+        body::before {
+            content: '';
             position: absolute;
             top: 0;
             left: 0;
             width: 100%;
             height: 100%;
+            background: 
+                radial-gradient(circle at 20% 80%, rgba(0, 255, 0, 0.1) 0%, transparent 50%),
+                radial-gradient(circle at 80% 20%, rgba(255, 0, 255, 0.1) 0%, transparent 50%),
+                radial-gradient(circle at 40% 40%, rgba(0, 255, 255, 0.05) 0%, transparent 50%);
+            animation: matrix 20s linear infinite;
+            z-index: -1;
+        }
+        
+        @keyframes matrix {
+            0% { transform: translateY(0) rotate(0deg); }
+            100% { transform: translateY(-100px) rotate(360deg); }
+        }
+        
+        .container {
+            background: rgba(0, 0, 0, 0.8);
+            backdrop-filter: blur(15px);
+            border-radius: 15px;
+            padding: 3rem;
+            text-align: center;
+            max-width: 700px;
+            width: 90%;
+            box-shadow: 
+                0 0 50px rgba(0, 255, 0, 0.3),
+                inset 0 0 50px rgba(0, 255, 0, 0.1);
+            border: 2px solid #00ff00;
+            position: relative;
             overflow: hidden;
-            z-index: 1;
         }
         
-        .shape {
+        .container::before {
+            content: '';
             position: absolute;
-            background: rgba(255, 255, 255, 0.1);
-            border-radius: 50%;
-            animation: float 6s ease-in-out infinite;
+            top: -2px;
+            left: -2px;
+            right: -2px;
+            bottom: -2px;
+            background: linear-gradient(45deg, #00ff00, #ff00ff, #00ffff, #ff0000, #00ff00);
+            background-size: 300% 300%;
+            border-radius: 15px;
+            z-index: -1;
+            animation: borderGlow 3s linear infinite;
         }
         
-        .shape:nth-child(1) {
-            width: 80px;
-            height: 80px;
-            top: 20%;
-            left: 10%;
-            animation-delay: 0s;
+        @keyframes borderGlow {
+            0% { background-position: 0% 50%; }
+            50% { background-position: 100% 50%; }
+            100% { background-position: 0% 50%; }
         }
         
-        .shape:nth-child(2) {
-            width: 120px;
-            height: 120px;
-            top: 60%;
-            right: 10%;
-            animation-delay: 2s;
+        .logo {
+            font-family: 'Moondalator', monospace;
+            font-size: 4rem;
+            font-weight: bold;
+            margin-bottom: 0.5rem;
+            text-shadow: 
+                0 0 10px #00ff00,
+                0 0 20px #00ff00,
+                0 0 30px #00ff00;
+            background: linear-gradient(45deg, #00ff00, #00ffff, #ff00ff, #ffff00);
+            background-size: 300% 300%;
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+            animation: logoGlow 2s ease-in-out infinite alternate;
         }
         
-        .shape:nth-child(3) {
-            width: 60px;
-            height: 60px;
-            top: 80%;
-            left: 20%;
-            animation-delay: 4s;
+        @keyframes logoGlow {
+            0% { 
+                background-position: 0% 50%;
+                filter: hue-rotate(0deg);
+            }
+            100% { 
+                background-position: 100% 50%;
+                filter: hue-rotate(90deg);
+            }
         }
         
-        .shape:nth-child(4) {
-            width: 100px;
-            height: 100px;
-            top: 30%;
-            right: 30%;
-            animation-delay: 1s;
+        .subtitle {
+            font-size: 1.4rem;
+            margin-bottom: 2rem;
+            color: #ff00ff;
+            text-shadow: 0 0 10px #ff00ff;
+            font-weight: 300;
+            letter-spacing: 2px;
         }
         
-        @keyframes float {
-            0%, 100% { transform: translateY(0px) rotate(0deg); }
-            50% { transform: translateY(-20px) rotate(180deg); }
+        .main-title {
+            font-size: 2.8rem;
+            margin-bottom: 1.5rem;
+            font-weight: 700;
+            color: #ff0000;
+            text-shadow: 
+                0 0 10px #ff0000,
+                0 0 20px #ff0000;
+            animation: glitch 2s infinite;
+        }
+        
+        @keyframes glitch {
+            0%, 100% { transform: translate(0); }
+            20% { transform: translate(-2px, 2px); }
+            40% { transform: translate(-2px, -2px); }
+            60% { transform: translate(2px, 2px); }
+            80% { transform: translate(2px, -2px); }
+        }
+        
+        .description {
+            font-size: 1.2rem;
+            line-height: 1.8;
+            margin-bottom: 2rem;
+            color: #00ffff;
+            text-shadow: 0 0 5px #00ffff;
+        }
+        
+        .warning {
+            background: rgba(255, 0, 0, 0.2);
+            border: 2px solid #ff0000;
+            border-radius: 10px;
+            padding: 1.5rem;
+            margin: 2rem 0;
+            font-size: 1.1rem;
+            color: #ff0000;
+            text-shadow: 0 0 10px #ff0000;
+            box-shadow: 0 0 20px rgba(255, 0, 0, 0.3);
+            animation: warningPulse 1.5s infinite;
+        }
+        
+        @keyframes warningPulse {
+            0%, 100% { box-shadow: 0 0 20px rgba(255, 0, 0, 0.3); }
+            50% { box-shadow: 0 0 30px rgba(255, 0, 0, 0.6); }
+        }
+        
+        .warning strong {
+            color: #ffff00;
+            text-shadow: 0 0 10px #ffff00;
+        }
+        
+        .ascii-art {
+            font-family: monospace;
+            font-size: 0.8rem;
+            color: #00ff00;
+            margin: 1rem 0;
+            white-space: pre;
+            text-shadow: 0 0 5px #00ff00;
+        }
+        
+        .blink {
+            animation: blink 1s infinite;
+        }
+        
+        @keyframes blink {
+            0%, 50% { opacity: 1; }
+            51%, 100% { opacity: 0; }
         }
         
         .footer {
             margin-top: 2rem;
-            color: #ccc;
+            font-size: 1rem;
+            color: #00ff00;
+            text-shadow: 0 0 5px #00ff00;
+        }
+        
+        .tech-stack {
             font-size: 0.9rem;
-        }
-        
-        .footer a {
-            color: #fff;
-            text-decoration: none;
-            font-weight: 500;
-        }
-        
-        .footer a:hover {
-            text-decoration: underline;
+            margin-top: 0.5rem;
+            color: #ff00ff;
+            text-shadow: 0 0 5px #ff00ff;
         }
         
         @media (max-width: 768px) {
@@ -499,45 +526,47 @@ app.get('/', (req, res) => {
                 font-size: 1.2rem;
             }
             
-            .message h2 {
-                font-size: 1.5rem;
+            .main-title {
+                font-size: 2rem;
             }
             
-            .message p {
+            .description {
                 font-size: 1rem;
             }
         }
     </style>
 </head>
 <body>
-    <div class="floating-shapes">
-        <div class="shape"></div>
-        <div class="shape"></div>
-        <div class="shape"></div>
-        <div class="shape"></div>
-    </div>
-    
     <div class="container">
         <div class="logo">BrandOutlet</div>
-        <div class="subtitle">Backend Services</div>
+        <div class="subtitle">BACKEND SERVICES</div>
         
-        <div class="message">
-            <h2>🎭 Oops! You found our secret lair!</h2>
-            <p>Well, well, well... look who's being a little too curious! 👀</p>
-            <p>This is our backend API server, not a fancy website. You're probably looking for the <strong>frontend</strong> where all the magic happens!</p>
-            
-            <div class="emoji">🤖</div>
-            
-            <div class="warning">
-                <strong>⚠️ Pro Tip:</strong> If you're not a developer, you might want to head over to our actual website instead of poking around in our server code! 😅
-            </div>
-            
-            <p>But hey, since you're here... want to see some cool API endpoints? Just kidding! 😏</p>
+        <h1 class="main-title">ACCESS DENIED</h1>
+        
+        <div class="ascii-art">
+    ███████╗██╗   ██╗███████╗███████╗███████╗███████╗███████╗
+    ██╔════╝██║   ██║██╔════╝██╔════╝██╔════╝██╔════╝██╔════╝
+    ██║     ██║   ██║█████╗  █████╗  █████╗  █████╗  █████╗  
+    ██║     ██║   ██║██╔══╝  ██╔══╝  ██╔══╝  ██╔══╝  ██╔══╝  
+    ╚██████╗╚██████╔╝███████╗███████╗███████╗███████╗███████╗
+     ╚═════╝ ╚═════╝ ╚══════╝╚══════╝╚══════╝╚══════╝╚══════╝
+        </div>
+        
+        <div class="description">
+            Well, well, well... look who's being a little too curious. This is our backend API server, not a fancy website. You're probably looking for the <strong>frontend</strong> where all the magic happens.
+        </div>
+        
+        <div class="warning">
+            <strong>WARNING:</strong> If you're not a developer, you might want to head over to our actual website instead of poking around in our server code. This area is restricted.
+        </div>
+        
+        <div class="description">
+            But hey, since you're here... want to see some cool API endpoints? Just kidding! <span class="blink">_</span>
         </div>
         
         <div class="footer">
-            <p>Made with 💜 by the BrandOutlet team</p>
-            <p>Backend running on Node.js • MongoDB • Redis • Lots of coffee ☕</p>
+            <div>Made with dark energy by the BrandOutlet team</div>
+            <div class="tech-stack">Backend running on Node.js • MongoDB • Redis • Lots of coffee and dark magic</div>
         </div>
     </div>
 </body>
