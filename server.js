@@ -6,6 +6,9 @@ const rateLimit = require('express-rate-limit');
 const path = require('path');
 require('dotenv').config();
 
+// Import HTML response middleware
+const htmlResponse = require('./middleware/htmlResponse');
+
 // Import route loader for dynamic loading
 const { getLazyRouteHandler, preloadCriticalRoutes } = require('./utils/routeLoader');
 const { preloadCriticalServices } = require('./utils/serviceLoader');
@@ -159,6 +162,12 @@ if (process.env.ENABLE_REQUEST_LOGGING !== 'false') {
 // Body parsing middleware
 app.use(express.json({ limit: '10mb' }));
 app.use(express.urlencoded({ extended: true }));
+
+// HTML response middleware for beautiful API responses
+app.use(htmlResponse);
+
+// Test HTML response route
+app.use('/api/test-html', require('./api/test-html'));
 
 // Health check endpoint
 const healthCheckPath = process.env.HEALTH_CHECK_PATH || '/health';
