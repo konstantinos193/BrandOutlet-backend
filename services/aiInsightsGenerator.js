@@ -443,60 +443,132 @@ class AIInsightsGenerator {
     return prompt;
   }
 
-  // Build prompt for Hugging Face
+  // Build prompt for Hugging Face (using comprehensive data structure)
   buildHuggingFacePrompt(realData, focus) {
-    const { products, variants, pageTracking, seo, userPreferences } = realData;
+    const { 
+      products, users, sales, seo, geolocation, performance, 
+      inventory, search, pageTracking, userPreferences, 
+      realTime, financial 
+    } = realData;
     
     let prompt = `E-commerce Business Analysis Report\n\n`;
     
     // Product metrics
     prompt += `PRODUCT METRICS:\n`;
-    prompt += `- Total Products: ${products.totalProducts}\n`;
-    prompt += `- Active Products: ${products.activeProducts}\n`;
-    prompt += `- Active Product Rate: ${((products.activeProducts / products.totalProducts) * 100).toFixed(1)}%\n`;
-    prompt += `- Recent Products (7 days): ${products.recentProducts}\n`;
-    prompt += `- Average Price: $${products.priceStats.avgPrice?.toFixed(2) || 'N/A'}\n\n`;
+    prompt += `- Total Products: ${products.totalProducts || 0}\n`;
+    prompt += `- Active Products: ${products.activeProducts || 0}\n`;
+    prompt += `- Active Product Rate: ${products.activeProductRate || 0}%\n`;
+    prompt += `- Recent Products (7 days): ${products.recentProducts || 0}\n`;
+    prompt += `- Average Price: $${products.priceStats?.avgPrice?.toFixed(2) || 'N/A'}\n`;
+    prompt += `- Total Stock Value: $${products.stockStats?.totalValue?.toLocaleString() || 'N/A'}\n`;
+    prompt += `- Out of Stock: ${products.stockStats?.outOfStock || 0}\n`;
+    prompt += `- Low Stock: ${products.stockStats?.lowStock || 0}\n\n`;
     
-    // Inventory metrics
-    prompt += `INVENTORY STATUS:\n`;
-    prompt += `- Total Variants: ${variants.totalVariants}\n`;
-    prompt += `- Active Variants: ${variants.activeVariants}\n`;
-    prompt += `- Out of Stock: ${variants.stockDistribution.outOfStock || 0}\n`;
-    prompt += `- Low Stock (≤5): ${variants.stockDistribution.lowStock || 0}\n`;
-    prompt += `- Total Stock Value: $${variants.priceAnalysis.totalValue?.toLocaleString() || 'N/A'}\n\n`;
-    
-    // Traffic metrics
-    prompt += `TRAFFIC ANALYTICS:\n`;
-    prompt += `- Today's Page Views: ${pageTracking.today.pageViews}\n`;
-    prompt += `- Today's Unique Sessions: ${pageTracking.today.uniqueSessions}\n`;
-    prompt += `- Growth Rate: ${pageTracking.growthRate}%\n`;
-    prompt += `- Top Page: ${pageTracking.topPages[0]?._id || 'N/A'} (${pageTracking.topPages[0]?.views || 0} views)\n`;
-    prompt += `- Top Country: ${pageTracking.topCountries[0]?._id || 'N/A'} (${pageTracking.topCountries[0]?.views || 0} views)\n\n`;
-    
-    // User preferences if available
-    if (userPreferences.totalUsers > 0) {
-      prompt += `USER INSIGHTS:\n`;
-      prompt += `- Total Users: ${userPreferences.totalUsers}\n`;
-      prompt += `- Top Gender: ${userPreferences.genderDistribution[0]?._id || 'N/A'}\n`;
-      prompt += `- Top Size: ${userPreferences.sizeDistribution[0]?._id || 'N/A'}\n`;
-      prompt += `- Top Region: ${userPreferences.regionDistribution[0]?._id || 'N/A'}\n\n`;
+    // User metrics
+    prompt += `USER METRICS:\n`;
+    prompt += `- Total Users: ${users.totalUsers || 0}\n`;
+    prompt += `- Active Users: ${users.activeUsers || 0}\n`;
+    prompt += `- New Users Today: ${users.newUsersToday || 0}\n`;
+    prompt += `- User Growth Rate: ${users.userGrowthRate || 0}%\n`;
+    if (users.demographics && users.demographics.length > 0) {
+      prompt += `- Top Gender: ${users.demographics[0]?._id || 'N/A'} (${users.demographics[0]?.count || 0})\n`;
     }
+    prompt += `\n`;
+    
+    // Sales metrics
+    prompt += `SALES METRICS:\n`;
+    prompt += `- Total Sales: ${sales.totalSales || 0}\n`;
+    prompt += `- Total Revenue: $${sales.totalRevenue?.toLocaleString() || 'N/A'}\n`;
+    prompt += `- Average Order Value: $${sales.averageOrderValue?.toFixed(2) || 'N/A'}\n`;
+    prompt += `- Revenue Growth: ${sales.revenueGrowth || 0}%\n`;
+    if (sales.conversionFunnel) {
+      prompt += `- Conversion Rate: ${sales.conversionFunnel.conversionRate || 0}%\n`;
+    }
+    prompt += `\n`;
     
     // SEO metrics if available
-    if (seo.totalMetrics > 0) {
-      prompt += `PERFORMANCE METRICS:\n`;
-      prompt += `- Total SEO Metrics: ${seo.totalMetrics}\n`;
-      if (seo.coreWebVitals.LCP) {
-        prompt += `- Average LCP: ${seo.coreWebVitals.LCP.avg?.toFixed(2) || 'N/A'}s\n`;
+    if (seo.metrics && Object.keys(seo.metrics).length > 0) {
+      prompt += `SEO PERFORMANCE:\n`;
+      prompt += `- Total Metrics Tracked: ${Object.keys(seo.metrics).length}\n`;
+      if (seo.coreWebVitals) {
+        prompt += `- Core Web Vitals: Available\n`;
       }
-      if (seo.pagePerformance.page_load_time) {
-        prompt += `- Average Load Time: ${seo.pagePerformance.page_load_time.avg?.toFixed(2) || 'N/A'}s\n`;
+      prompt += `\n`;
+    }
+    
+    // Geolocation data
+    if (geolocation.trafficByCountry && geolocation.trafficByCountry.length > 0) {
+      prompt += `GEOGRAPHIC DATA:\n`;
+      prompt += `- Top Country: ${geolocation.trafficByCountry[0]?.country || 'N/A'} (${geolocation.trafficByCountry[0]?.count || 0} visits)\n`;
+      if (geolocation.trafficByCity && geolocation.trafficByCity.length > 0) {
+        prompt += `- Top City: ${geolocation.trafficByCity[0]?.city || 'N/A'} (${geolocation.trafficByCity[0]?.count || 0} visits)\n`;
+      }
+      prompt += `\n`;
+    }
+    
+    // Performance data
+    if (performance.pageLoadTimes && performance.pageLoadTimes.length > 0) {
+      prompt += `PERFORMANCE DATA:\n`;
+      prompt += `- Avg Page Load Time: ${performance.pageLoadTimes[0]?.avgLoadTime?.toFixed(2) || 'N/A'}s\n`;
+      prompt += `\n`;
+    }
+    
+    // Inventory data
+    if (inventory.metrics && inventory.metrics.length > 0) {
+      prompt += `INVENTORY DATA:\n`;
+      prompt += `- Total Inventory Items: ${inventory.metrics[0]?.totalProducts || 0}\n`;
+      prompt += `- Total Inventory Value: $${inventory.metrics[0]?.totalValue?.toLocaleString() || 'N/A'}\n`;
+      prompt += `- Low Stock Items: ${inventory.metrics[0]?.lowStockCount || 0}\n`;
+      prompt += `- Out of Stock Items: ${inventory.metrics[0]?.outOfStockCount || 0}\n`;
+      prompt += `\n`;
+    }
+    
+    // Search data
+    if (search.queries && search.queries.length > 0) {
+      prompt += `SEARCH DATA:\n`;
+      prompt += `- Top Search Query: "${search.queries[0]?._id || 'N/A'}" (${search.queries[0]?.count || 0} searches)\n`;
+      prompt += `\n`;
+    }
+    
+    // Page tracking data
+    if (pageTracking.popularPages && pageTracking.popularPages.length > 0) {
+      prompt += `PAGE TRACKING:\n`;
+      prompt += `- Total Page Views: ${pageTracking.pageViews || 0}\n`;
+      prompt += `- Most Popular Page: ${pageTracking.popularPages[0]?._id || 'N/A'} (${pageTracking.popularPages[0]?.views || 0} views)\n`;
+      prompt += `\n`;
+    }
+    
+    // User preferences
+    if (userPreferences.genderDistribution && userPreferences.genderDistribution.length > 0) {
+      prompt += `USER PREFERENCES:\n`;
+      prompt += `- Top Gender: ${userPreferences.genderDistribution[0]?._id || 'N/A'} (${userPreferences.genderDistribution[0]?.count || 0})\n`;
+      if (userPreferences.sizeDistribution && userPreferences.sizeDistribution.length > 0) {
+        prompt += `- Top Size: ${userPreferences.sizeDistribution[0]?._id || 'N/A'} (${userPreferences.sizeDistribution[0]?.count || 0})\n`;
+      }
+      prompt += `\n`;
+    }
+    
+    // Real-time data
+    if (realTime.currentUsers !== undefined) {
+      prompt += `REAL-TIME DATA:\n`;
+      prompt += `- Current Online Users: ${realTime.currentUsers || 0}\n`;
+      prompt += `- Current Sessions: ${realTime.currentSessions || 0}\n`;
+      prompt += `\n`;
+    }
+    
+    // Financial data
+    if (financial.revenue) {
+      prompt += `FINANCIAL DATA:\n`;
+      prompt += `- Total Revenue: $${financial.revenue.total?.toLocaleString() || 'N/A'}\n`;
+      prompt += `- Revenue Growth: ${financial.revenue.growth || 0}%\n`;
+      if (financial.margins) {
+        prompt += `- Profit Margin: ${financial.margins.margin || 0}%\n`;
       }
       prompt += `\n`;
     }
     
     prompt += `FOCUS AREA: ${focus}\n\n`;
-    prompt += `Based on this data, provide 3-5 specific, actionable business insights. Each insight should include:\n`;
+    prompt += `Based on this comprehensive data, provide 3-5 specific, actionable business insights. Each insight should include:\n`;
     prompt += `1. A clear title\n`;
     prompt += `2. Specific data points and analysis\n`;
     prompt += `3. Actionable recommendations\n`;
