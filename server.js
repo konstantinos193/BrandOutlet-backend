@@ -174,63 +174,64 @@ app.use(htmlResponse);
 // Test HTML response route
 app.use('/api/test-html', require('./api/test-html'));
 
-// HTML view route for any API endpoint
-app.get('/api-view/*', (req, res) => {
-  const fullPath = req.params[0] || '';
-  const apiUrl = `/api${fullPath}`;
-  
-  console.log('🔍 HTML View requested for:', apiUrl);
-  
-  // Make internal request to the actual API
-  const http = require('http');
-  const options = {
-    hostname: 'localhost',
-    port: process.env.PORT || 3001,
-    path: apiUrl,
-    method: 'GET',
-    headers: {
-      'Content-Type': 'application/json'
-    }
-  };
-  
-  const proxyReq = http.request(options, (proxyRes) => {
-    let data = '';
-    proxyRes.on('data', (chunk) => {
-      data += chunk;
-    });
-    
-    proxyRes.on('end', () => {
-      try {
-        const responseData = JSON.parse(data);
-        
-        // Serve HTML response
-        const htmlPath = path.join(__dirname, 'views', 'api-response.html');
-        let html = fs.readFileSync(htmlPath, 'utf8');
-        
-        // Inject the response data into the HTML
-        const jsonData = JSON.stringify(responseData);
-        html = html.replace(
-          'x-data="apiViewer()"',
-          `x-data="apiViewer()" x-init="response = ${jsonData}; loading = false; lastFetch = new Date('${new Date().toISOString()}')"`
-        );
-        
-        // Set content type to HTML
-        res.setHeader('Content-Type', 'text/html');
-        res.send(html);
-      } catch (error) {
-        console.error('Error parsing API response:', error);
-        res.status(500).send('Error loading API response');
-      }
-    });
-  });
-  
-  proxyReq.on('error', (error) => {
-    console.error('Error making API request:', error);
-    res.status(500).send('Error connecting to API');
-  });
-  
-  proxyReq.end();
-});
+// HTML view route for any API endpoint - DISABLED due to path regex issues
+// app.get('/api-view/:endpoint*', (req, res) => {
+//   const endpoint = req.params.endpoint || '';
+//   const fullPath = req.params[0] ? `/${endpoint}${req.params[0]}` : `/${endpoint}`;
+//   const apiUrl = `/api${fullPath}`;
+//   
+//   console.log('🔍 HTML View requested for:', apiUrl);
+//   
+//   // Make internal request to the actual API
+//   const http = require('http');
+//   const options = {
+//     hostname: 'localhost',
+//     port: process.env.PORT || 3001,
+//     path: apiUrl,
+//     method: 'GET',
+//     headers: {
+//       'Content-Type': 'application/json'
+//     }
+//   };
+//   
+//   const proxyReq = http.request(options, (proxyRes) => {
+//     let data = '';
+//     proxyRes.on('data', (chunk) => {
+//       data += chunk;
+//     });
+//     
+//     proxyRes.on('end', () => {
+//       try {
+//         const responseData = JSON.parse(data);
+//         
+//         // Serve HTML response
+//         const htmlPath = path.join(__dirname, 'views', 'api-response.html');
+//         let html = fs.readFileSync(htmlPath, 'utf8');
+//         
+//         // Inject the response data into the HTML
+//         const jsonData = JSON.stringify(responseData);
+//         html = html.replace(
+//           'x-data="apiViewer()"',
+//           `x-data="apiViewer()" x-init="response = ${jsonData}; loading = false; lastFetch = new Date('${new Date().toISOString()}')"`
+//         );
+//         
+//         // Set content type to HTML
+//         res.setHeader('Content-Type', 'text/html');
+//         res.send(html);
+//       } catch (error) {
+//         console.error('Error parsing API response:', error);
+//         res.status(500).send('Error loading API response');
+//       }
+//     });
+//   });
+//   
+//   proxyReq.on('error', (error) => {
+//     console.error('Error making API request:', error);
+//     res.status(500).send('Error connecting to API');
+//   });
+//   
+//   proxyReq.end();
+// });
 
 // Direct HTML test route (always serves HTML)
 app.get('/api/test-html-view', (req, res) => {
