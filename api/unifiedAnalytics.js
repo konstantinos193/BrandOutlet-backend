@@ -148,11 +148,27 @@ router.get('/cohort-analysis', async (req, res) => {
 // GET /api/unified-analytics/ltv-cac - Get LTV/CAC data
 router.get('/ltv-cac', async (req, res) => {
   try {
-    const ltvCacData = analyticsDataService.generateLTVCACData();
+    const ltvCacData = await analyticsDataService.generateLTVCACData();
+    
+    // Validate the data before sending
+    if (!Array.isArray(ltvCacData) || ltvCacData.length === 0) {
+      throw new Error('Invalid LTV/CAC data structure');
+    }
+    
+    // Ensure all data points have valid values
+    const validatedData = ltvCacData.map(item => ({
+      period: item.period || 'Unknown',
+      ltv: isFinite(item.ltv) ? Math.max(0, item.ltv) : 0,
+      cac: isFinite(item.cac) ? Math.max(1, item.cac) : 1,
+      ltvCacRatio: isFinite(item.ltvCacRatio) ? Math.max(0, item.ltvCacRatio) : 0,
+      paybackPeriod: isFinite(item.paybackPeriod) ? Math.max(0, item.paybackPeriod) : 0,
+      revenue: isFinite(item.revenue) ? Math.max(0, item.revenue) : 0,
+      customers: isFinite(item.customers) ? Math.max(0, item.customers) : 0
+    }));
     
     res.json({
       success: true,
-      data: ltvCacData,
+      data: validatedData,
       timestamp: new Date().toISOString()
     });
   } catch (error) {
