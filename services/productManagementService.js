@@ -1,4 +1,6 @@
 const { connectDB } = require('../config/database');
+const Product = require('../models/Product');
+const { ObjectId } = require('mongodb');
 
 class ProductManagementService {
   constructor() {
@@ -48,54 +50,106 @@ class ProductManagementService {
 
     const cacheKey = `products-${page}-${limit}-${search}-${category}-${brand}-${status}-${sortBy}-${sortOrder}`;
     return this.getCachedData(cacheKey, async () => {
-      // In a real implementation, this would query MongoDB
-      const mockProducts = this.generateMockProducts();
+      console.log('📦 ProductManagementService: Fetching real products from database');
       
-      let filteredProducts = [...mockProducts];
+      // Build MongoDB query
+      const query = {};
       
-      // Apply filters
+      // Apply search filter
       if (search) {
-        const searchLower = search.toLowerCase();
-        filteredProducts = filteredProducts.filter(product =>
-          product.name.toLowerCase().includes(searchLower) ||
-          product.brand.toLowerCase().includes(searchLower) ||
-          product.description.toLowerCase().includes(searchLower)
-        );
+        query.$or = [
+          { name: { $regex: search, $options: 'i' } },
+          { description: { $regex: search, $options: 'i' } },
+          { 'brand.name': { $regex: search, $options: 'i' } }
+        ];
       }
       
+      // Apply category filter
       if (category) {
-        filteredProducts = filteredProducts.filter(product =>
-          product.category.toLowerCase() === category.toLowerCase()
-        );
+        query.category = { $regex: category, $options: 'i' };
       }
       
+      // Apply brand filter
       if (brand) {
-        filteredProducts = filteredProducts.filter(product =>
-          product.brand.toLowerCase() === brand.toLowerCase()
-        );
+        query['brand.name'] = { $regex: brand, $options: 'i' };
       }
       
+      // Apply status filter (map to isActive)
       if (status) {
-        filteredProducts = filteredProducts.filter(product =>
-          product.status === status
-        );
+        if (status === 'active') {
+          query.isActive = true;
+        } else if (status === 'inactive') {
+          query.isActive = false;
+        }
       }
       
-      // Apply sorting
-      filteredProducts = this.sortProducts(filteredProducts, sortBy, sortOrder);
+      // Build sort object
+      const sort = {};
+      switch (sortBy) {
+        case 'name':
+          sort.name = sortOrder === 'desc' ? -1 : 1;
+          break;
+        case 'brand':
+          sort['brand.name'] = sortOrder === 'desc' ? -1 : 1;
+          break;
+        case 'category':
+          sort.category = sortOrder === 'desc' ? -1 : 1;
+          break;
+        case 'price':
+          sort.price = sortOrder === 'desc' ? -1 : 1;
+          break;
+        case 'stock':
+          sort.stock = sortOrder === 'desc' ? -1 : 1;
+          break;
+        case 'createdAt':
+          sort.createdAt = sortOrder === 'desc' ? -1 : 1;
+          break;
+        case 'updatedAt':
+          sort.updatedAt = sortOrder === 'desc' ? -1 : 1;
+          break;
+        default:
+          sort.name = sortOrder === 'desc' ? -1 : 1;
+      }
       
-      // Apply pagination
-      const startIndex = (page - 1) * limit;
-      const endIndex = startIndex + limit;
-      const paginatedProducts = filteredProducts.slice(startIndex, endIndex);
+      // Get products from database
+      const collection = this.db.collection('products');
+      const total = await collection.countDocuments(query);
+      
+      const products = await collection
+        .find(query)
+        .sort(sort)
+        .skip((page - 1) * limit)
+        .limit(parseInt(limit))
+        .toArray();
+      
+      // Transform products to match expected format
+      const transformedProducts = products.map(product => ({
+        id: product._id.toString(),
+        name: product.name || 'Unnamed Product',
+        brand: product.brand?.name || 'Unknown Brand',
+        category: product.category || 'Other',
+        description: product.description || '',
+        price: product.price || 0,
+        originalPrice: product.originalPrice || product.price || 0,
+        condition: product.condition || 'New',
+        color: product.color || 'Unknown',
+        stock: product.stock || 0,
+        status: product.isActive ? 'active' : 'inactive',
+        images: product.images || ['/products/placeholder.jpg'],
+        tags: product.tags || [],
+        rating: product.rating || 0,
+        reviewCount: product.reviewCount || 0,
+        createdAt: product.createdAt || new Date(),
+        updatedAt: product.updatedAt || new Date()
+      }));
       
       return {
-        products: paginatedProducts,
-        total: filteredProducts.length,
-        page,
-        limit,
-        totalPages: Math.ceil(filteredProducts.length / limit),
-        hasNextPage: endIndex < filteredProducts.length,
+        products: transformedProducts,
+        total,
+        page: parseInt(page),
+        limit: parseInt(limit),
+        totalPages: Math.ceil(total / limit),
+        hasNextPage: (page * limit) < total,
         hasPrevPage: page > 1
       };
     });
@@ -134,9 +188,8 @@ class ProductManagementService {
   async executeSingleOperation(operation, productId, options = {}) {
     await this.initialize();
     
-    // In a real implementation, this would update MongoDB
-    const mockProducts = this.generateMockProducts();
-    const product = mockProducts.find(p => p.id === productId);
+    const collection = this.db.collection('products');
+    const product = await collection.findOne({ _id: new ObjectId(productId) });
     
     if (!product) {
       throw new Error(`Product with ID ${productId} not found`);
@@ -174,8 +227,21 @@ class ProductManagementService {
 
   // Update product status
   async updateProductStatus(productId, status) {
-    // In a real implementation, this would update MongoDB
-    console.log(`Updating product ${productId} status to ${status}`);
+    await this.initialize();
+    const collection = this.db.collection('products');
+    
+    const isActive = status === 'active';
+    await collection.updateOne(
+      { _id: new ObjectId(productId) },
+      { 
+        $set: { 
+          isActive,
+          updatedAt: new Date()
+        }
+      }
+    );
+    
+    console.log(`✅ Updated product ${productId} status to ${status}`);
     
     return {
       productId,
@@ -187,8 +253,20 @@ class ProductManagementService {
 
   // Update product price
   async updateProductPrice(productId, price) {
-    // In a real implementation, this would update MongoDB
-    console.log(`Updating product ${productId} price to ${price}`);
+    await this.initialize();
+    const collection = this.db.collection('products');
+    
+    await collection.updateOne(
+      { _id: new ObjectId(productId) },
+      { 
+        $set: { 
+          price: parseFloat(price),
+          updatedAt: new Date()
+        }
+      }
+    );
+    
+    console.log(`✅ Updated product ${productId} price to $${price}`);
     
     return {
       productId,
@@ -200,8 +278,20 @@ class ProductManagementService {
 
   // Update product stock
   async updateProductStock(productId, stock) {
-    // In a real implementation, this would update MongoDB
-    console.log(`Updating product ${productId} stock to ${stock}`);
+    await this.initialize();
+    const collection = this.db.collection('products');
+    
+    await collection.updateOne(
+      { _id: new ObjectId(productId) },
+      { 
+        $set: { 
+          stock: parseInt(stock),
+          updatedAt: new Date()
+        }
+      }
+    );
+    
+    console.log(`✅ Updated product ${productId} stock to ${stock}`);
     
     return {
       productId,
@@ -213,8 +303,20 @@ class ProductManagementService {
 
   // Update product category
   async updateProductCategory(productId, category) {
-    // In a real implementation, this would update MongoDB
-    console.log(`Updating product ${productId} category to ${category}`);
+    await this.initialize();
+    const collection = this.db.collection('products');
+    
+    await collection.updateOne(
+      { _id: new ObjectId(productId) },
+      { 
+        $set: { 
+          category,
+          updatedAt: new Date()
+        }
+      }
+    );
+    
+    console.log(`✅ Updated product ${productId} category to ${category}`);
     
     return {
       productId,
@@ -226,8 +328,20 @@ class ProductManagementService {
 
   // Update product brand
   async updateProductBrand(productId, brand) {
-    // In a real implementation, this would update MongoDB
-    console.log(`Updating product ${productId} brand to ${brand}`);
+    await this.initialize();
+    const collection = this.db.collection('products');
+    
+    await collection.updateOne(
+      { _id: new ObjectId(productId) },
+      { 
+        $set: { 
+          'brand.name': brand,
+          updatedAt: new Date()
+        }
+      }
+    );
+    
+    console.log(`✅ Updated product ${productId} brand to ${brand}`);
     
     return {
       productId,
@@ -239,8 +353,12 @@ class ProductManagementService {
 
   // Delete product
   async deleteProduct(productId) {
-    // In a real implementation, this would delete from MongoDB
-    console.log(`Deleting product ${productId}`);
+    await this.initialize();
+    const collection = this.db.collection('products');
+    
+    await collection.deleteOne({ _id: new ObjectId(productId) });
+    
+    console.log(`✅ Deleted product ${productId}`);
     
     return {
       productId,
@@ -283,168 +401,81 @@ class ProductManagementService {
     
     const cacheKey = 'product-stats';
     return this.getCachedData(cacheKey, async () => {
-      const mockProducts = this.generateMockProducts();
+      console.log('📊 ProductManagementService: Fetching real product statistics from database');
+      
+      const collection = this.db.collection('products');
+      
+      // Get basic counts
+      const total = await collection.countDocuments();
+      const active = await collection.countDocuments({ isActive: true });
+      const inactive = await collection.countDocuments({ isActive: false });
+      const outOfStock = await collection.countDocuments({ stock: 0 });
+      const lowStock = await collection.countDocuments({ 
+        stock: { $gt: 0, $lte: 5 } 
+      });
+      
+      // Get category stats
+      const categoryStats = await collection.aggregate([
+        { $group: { _id: '$category', count: { $sum: 1 } } },
+        { $sort: { count: -1 } }
+      ]).toArray();
+      
+      // Get brand stats
+      const brandStats = await collection.aggregate([
+        { $group: { _id: '$brand.name', count: { $sum: 1 } } },
+        { $sort: { count: -1 } }
+      ]).toArray();
+      
+      // Get price stats
+      const priceStats = await collection.aggregate([
+        {
+          $group: {
+            _id: null,
+            averagePrice: { $avg: '$price' },
+            totalValue: { $sum: { $multiply: ['$price', '$stock'] } }
+          }
+        }
+      ]).toArray();
+      
+      const averagePrice = priceStats[0]?.averagePrice || 0;
+      const totalValue = priceStats[0]?.totalValue || 0;
+      
+      // Get price range stats
+      const priceRanges = await collection.aggregate([
+        {
+          $bucket: {
+            groupBy: '$price',
+            boundaries: [0, 100, 500, 1000, 2000, Infinity],
+            default: 'Over $2000',
+            output: {
+              count: { $sum: 1 }
+            }
+          }
+        }
+      ]).toArray();
       
       const stats = {
-        total: mockProducts.length,
-        active: mockProducts.filter(p => p.status === 'active').length,
-        inactive: mockProducts.filter(p => p.status === 'inactive').length,
-        outOfStock: mockProducts.filter(p => p.stock === 0).length,
-        lowStock: mockProducts.filter(p => p.stock > 0 && p.stock <= 5).length,
-        categories: this.getCategoryStats(mockProducts),
-        brands: this.getBrandStats(mockProducts),
-        priceRanges: this.getPriceRangeStats(mockProducts),
-        averagePrice: this.calculateAveragePrice(mockProducts),
-        totalValue: this.calculateTotalValue(mockProducts)
+        total,
+        active,
+        inactive,
+        outOfStock,
+        lowStock,
+        categories: categoryStats.map(cat => ({ category: cat._id, count: cat.count })),
+        brands: brandStats.map(brand => ({ brand: brand._id, count: brand.count })),
+        priceRanges: priceRanges.map(range => ({
+          label: range._id === 'Over $2000' ? 'Over $2000' : `$${range._id} - $${range._id + 400}`,
+          min: range._id,
+          max: range._id === 'Over $2000' ? Infinity : range._id + 400,
+          count: range.count
+        })),
+        averagePrice: Math.round(averagePrice * 100) / 100,
+        totalValue: Math.round(totalValue * 100) / 100
       };
       
       return stats;
     });
   }
 
-  // Generate mock products
-  generateMockProducts() {
-    const brands = ['Nike', 'Adidas', 'Jordan', 'Supreme', 'Off-White', 'Yeezy', 'Travis Scott', 'Dior', 'Gucci', 'Louis Vuitton'];
-    const categories = ['Sneakers', 'Clothing', 'Accessories', 'Bags', 'Watches'];
-    const conditions = ['New', 'Like New', 'Good', 'Fair', 'Poor'];
-    const colors = ['Black', 'White', 'Red', 'Blue', 'Green', 'Yellow', 'Purple', 'Orange', 'Pink', 'Brown'];
-    const statuses = ['active', 'inactive', 'draft', 'archived'];
-    
-    const products = [];
-    
-    for (let i = 1; i <= 500; i++) {
-      const brand = brands[Math.floor(Math.random() * brands.length)];
-      const category = categories[Math.floor(Math.random() * categories.length)];
-      const condition = conditions[Math.floor(Math.random() * conditions.length)];
-      const color = colors[Math.floor(Math.random() * colors.length)];
-      const status = statuses[Math.floor(Math.random() * statuses.length)];
-      
-      products.push({
-        id: `product-${i}`,
-        name: `${brand} ${category} ${i}`,
-        brand,
-        category,
-        description: `High-quality ${brand} ${category.toLowerCase()} in ${color.toLowerCase()}`,
-        price: Math.floor(Math.random() * 2000) + 50,
-        originalPrice: Math.floor(Math.random() * 2500) + 100,
-        condition,
-        color,
-        stock: Math.floor(Math.random() * 20),
-        status,
-        images: [`https://example.com/image${i}-1.jpg`, `https://example.com/image${i}-2.jpg`],
-        tags: [brand.toLowerCase(), category.toLowerCase(), color.toLowerCase(), condition.toLowerCase()],
-        rating: Math.round((Math.random() * 2 + 3) * 10) / 10,
-        reviewCount: Math.floor(Math.random() * 100),
-        createdAt: new Date(Date.now() - Math.random() * 365 * 24 * 60 * 60 * 1000),
-        updatedAt: new Date()
-      });
-    }
-    
-    return products;
-  }
-
-  // Sort products
-  sortProducts(products, sortBy, sortOrder = 'asc') {
-    return products.sort((a, b) => {
-      let aValue, bValue;
-      
-      switch (sortBy) {
-        case 'name':
-          aValue = a.name.toLowerCase();
-          bValue = b.name.toLowerCase();
-          break;
-        case 'brand':
-          aValue = a.brand.toLowerCase();
-          bValue = b.brand.toLowerCase();
-          break;
-        case 'category':
-          aValue = a.category.toLowerCase();
-          bValue = b.category.toLowerCase();
-          break;
-        case 'price':
-          aValue = a.price;
-          bValue = b.price;
-          break;
-        case 'stock':
-          aValue = a.stock;
-          bValue = b.stock;
-          break;
-        case 'status':
-          aValue = a.status;
-          bValue = b.status;
-          break;
-        case 'createdAt':
-          aValue = new Date(a.createdAt);
-          bValue = new Date(b.createdAt);
-          break;
-        case 'updatedAt':
-          aValue = new Date(a.updatedAt);
-          bValue = new Date(b.updatedAt);
-          break;
-        default:
-          aValue = a.name.toLowerCase();
-          bValue = b.name.toLowerCase();
-      }
-      
-      if (sortOrder === 'desc') {
-        return aValue > bValue ? -1 : aValue < bValue ? 1 : 0;
-      } else {
-        return aValue < bValue ? -1 : aValue > bValue ? 1 : 0;
-      }
-    });
-  }
-
-  // Get category statistics
-  getCategoryStats(products) {
-    const categoryCounts = {};
-    products.forEach(product => {
-      categoryCounts[product.category] = (categoryCounts[product.category] || 0) + 1;
-    });
-    
-    return Object.entries(categoryCounts)
-      .map(([category, count]) => ({ category, count }))
-      .sort((a, b) => b.count - a.count);
-  }
-
-  // Get brand statistics
-  getBrandStats(products) {
-    const brandCounts = {};
-    products.forEach(product => {
-      brandCounts[product.brand] = (brandCounts[product.brand] || 0) + 1;
-    });
-    
-    return Object.entries(brandCounts)
-      .map(([brand, count]) => ({ brand, count }))
-      .sort((a, b) => b.count - a.count);
-  }
-
-  // Get price range statistics
-  getPriceRangeStats(products) {
-    const ranges = [
-      { label: 'Under $100', min: 0, max: 100 },
-      { label: '$100 - $500', min: 100, max: 500 },
-      { label: '$500 - $1000', min: 500, max: 1000 },
-      { label: '$1000 - $2000', min: 1000, max: 2000 },
-      { label: 'Over $2000', min: 2000, max: Infinity }
-    ];
-    
-    return ranges.map(range => ({
-      ...range,
-      count: products.filter(p => p.price >= range.min && p.price < range.max).length
-    }));
-  }
-
-  // Calculate average price
-  calculateAveragePrice(products) {
-    if (products.length === 0) return 0;
-    const total = products.reduce((sum, product) => sum + product.price, 0);
-    return Math.round(total / products.length * 100) / 100;
-  }
-
-  // Calculate total value
-  calculateTotalValue(products) {
-    return products.reduce((sum, product) => sum + (product.price * product.stock), 0);
-  }
 
   // Clear cache
   clearCache() {
