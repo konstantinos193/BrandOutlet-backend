@@ -20,12 +20,10 @@ const getDashboardData = async () => {
   try {
     const [
       metrics,
-      recentActivity,
-      pendingVerifications
+      recentActivity
     ] = await Promise.all([
       analyticsService.getDashboardMetrics(),
-      analyticsService.getRecentActivity(10),
-      getPendingVerifications()
+      analyticsService.getRecentActivity(10)
     ]);
 
     // Debug: Log the original recentActivity
@@ -69,8 +67,7 @@ const getDashboardData = async () => {
     // Transform data into frontend-ready format
     const frontendReadyData = {
       metrics,
-      recentActivity: transformRecentActivityForFrontend(transformedRecentActivity),
-      pendingVerifications
+      recentActivity: transformRecentActivityForFrontend(transformedRecentActivity)
     };
 
     return frontendReadyData;
@@ -80,31 +77,6 @@ const getDashboardData = async () => {
   }
 };
 
-// Helper function to get pending verifications
-const getPendingVerifications = async () => {
-  const pendingVerifications = await Product.findAll({
-    'authenticity.isVerified': false,
-    isActive: true
-  });
-
-  return pendingVerifications.map(product => ({
-    id: product.id,
-    productId: product.id,
-    productName: product.name,
-    brand: product.brand.name,
-    price: product.price,
-    condition: product.condition || 'new',
-    category: product.category || 'General',
-    seller: {
-      id: product.seller?.id || 'unknown',
-      username: product.seller?.username || product.seller?.name || 'Unknown User',
-      name: product.seller?.name || 'Unknown User',
-      email: product.seller?.email || 'unknown@example.com'
-    },
-    images: product.images || [],
-    submittedAt: product.createdAt.toISOString()
-  }));
-};
 
 // Transform recent activity data for frontend consumption
 const transformRecentActivityForFrontend = (recentActivity) => {
@@ -175,43 +147,6 @@ router.get('/dashboard', async (req, res) => {
   }
 });
 
-// PUT /api/admin/products/:id/verify
-router.put('/products/:id/verify', (req, res) => {
-  try {
-    const { id } = req.params;
-    const { action } = req.body;
-    
-    console.log(`🔍 Product verification request: ${action} for product ${id}`);
-    
-    if (!action || !['approve', 'reject'].includes(action)) {
-      return res.status(400).json({
-        success: false,
-        error: 'Invalid action. Must be "approve" or "reject"'
-      });
-    }
-    
-    // Simulate verification processing
-    setTimeout(() => {
-      res.json({
-        success: true,
-        message: `Product ${id} ${action}d successfully`,
-        data: {
-          productId: id,
-          action,
-          verifiedAt: new Date().toISOString(),
-          verifiedBy: 'admin'
-        }
-      });
-    }, 200);
-  } catch (error) {
-    console.error('Error updating product verification:', error);
-    res.status(500).json({
-      success: false,
-      error: 'Failed to update product verification',
-      message: error.message
-    });
-  }
-});
 
 // GET /api/admin/stats
 router.get('/stats', async (req, res) => {
@@ -234,27 +169,6 @@ router.get('/stats', async (req, res) => {
   }
 });
 
-// GET /api/admin/verifications
-router.get('/verifications', async (req, res) => {
-  try {
-    console.log('🔍 Pending verifications requested');
-    
-    const pendingVerifications = await getPendingVerifications();
-    
-    res.json({
-      success: true,
-      data: pendingVerifications,
-      timestamp: new Date().toISOString()
-    });
-  } catch (error) {
-    console.error('Error fetching verifications:', error);
-    res.status(500).json({
-      success: false,
-      error: 'Failed to fetch verifications',
-      message: error.message
-    });
-  }
-});
 
 // GET /api/admin/metrics - Get detailed metrics
 router.get('/metrics', async (req, res) => {
@@ -434,8 +348,7 @@ router.get('/quick-insights', async (req, res) => {
         },
         products: {
           total: metrics.totalProducts,
-          verified: metrics.verifiedProducts,
-          pending: metrics.pendingVerifications
+          active: metrics.activeProducts
         },
         performance: {
           conversion: metrics.conversionRate,
@@ -544,17 +457,6 @@ const getSystemAlerts = async () => {
     });
   }
   
-  // Product verification alerts
-  if (metrics.pendingVerifications > 10) {
-    alerts.push({
-      type: 'info',
-      category: 'products',
-      title: 'Pending Verifications',
-      message: `${metrics.pendingVerifications} products awaiting verification`,
-      priority: 'medium',
-      action: 'Review and verify pending products'
-    });
-  }
   
   // Low stock alerts
   if (metrics.lowStockProducts > 0) {
@@ -599,11 +501,11 @@ const calculateHealthScore = async () => {
   else score += 0;
   factors += 25;
   
-  // Product verification (25 points)
-  const verificationRate = metrics.totalProducts > 0 ? (metrics.verifiedProducts / metrics.totalProducts) * 100 : 0;
-  if (verificationRate > 90) score += 25;
-  else if (verificationRate > 70) score += 20;
-  else if (verificationRate > 50) score += 10;
+  // Product quality (25 points) - based on active products and low stock
+  const activeProductRate = metrics.totalProducts > 0 ? (metrics.activeProducts / metrics.totalProducts) * 100 : 0;
+  if (activeProductRate > 90) score += 25;
+  else if (activeProductRate > 70) score += 20;
+  else if (activeProductRate > 50) score += 10;
   else score += 0;
   factors += 25;
   
@@ -615,16 +517,6 @@ const getUrgentActions = async () => {
   const actions = [];
   const metrics = await analyticsService.getDashboardMetrics();
   
-  if (metrics.pendingVerifications > 5) {
-    actions.push({
-      id: 'verify_products',
-      title: 'Verify Pending Products',
-      description: `${metrics.pendingVerifications} products need verification`,
-      priority: 'high',
-      estimatedTime: '15 minutes',
-      endpoint: '/api/admin/verifications'
-    });
-  }
   
   if (metrics.lowStockProducts > 0) {
     actions.push({
@@ -667,10 +559,10 @@ const calculateUserHealth = (metrics) => {
 };
 
 const calculateProductHealth = (metrics) => {
-  const verificationRate = metrics.totalProducts > 0 ? (metrics.verifiedProducts / metrics.totalProducts) * 100 : 0;
-  if (verificationRate > 90) return { score: 100, status: 'excellent' };
-  if (verificationRate > 70) return { score: 80, status: 'good' };
-  if (verificationRate > 50) return { score: 60, status: 'fair' };
+  const activeProductRate = metrics.totalProducts > 0 ? (metrics.activeProducts / metrics.totalProducts) * 100 : 0;
+  if (activeProductRate > 90) return { score: 100, status: 'excellent' };
+  if (activeProductRate > 70) return { score: 80, status: 'good' };
+  if (activeProductRate > 50) return { score: 60, status: 'fair' };
   return { score: 40, status: 'poor' };
 };
 

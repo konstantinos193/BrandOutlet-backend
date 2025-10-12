@@ -160,7 +160,6 @@ class Product {
       
       const totalProducts = await collection.countDocuments();
       const activeProducts = await collection.countDocuments({ isActive: true });
-      const verifiedProducts = await collection.countDocuments({ 'authenticity.isVerified': true });
       
       // Get recent products (last 7 days)
       const sevenDaysAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000);
@@ -176,7 +175,6 @@ class Product {
       return {
         totalProducts,
         activeProducts,
-        verifiedProducts,
         recentProducts,
         totalVariants,
         activeVariants,

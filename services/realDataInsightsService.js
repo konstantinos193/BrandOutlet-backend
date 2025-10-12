@@ -158,7 +158,6 @@ class RealDataInsightsService {
     const [
       totalProducts,
       activeProducts,
-      verifiedProducts,
       recentProducts,
       productsByCategory,
       productsByBrand,
@@ -206,9 +205,8 @@ class RealDataInsightsService {
     return {
       totalProducts,
       activeProducts,
-      verifiedProducts,
       recentProducts,
-      verificationRate: totalProducts > 0 ? ((verifiedProducts / totalProducts) * 100).toFixed(1) : 0,
+      activeProductRate: totalProducts > 0 ? ((activeProducts / totalProducts) * 100).toFixed(1) : 0,
       productsByCategory: productsByCategory.slice(0, 10),
       productsByBrand: productsByBrand.slice(0, 10),
       priceStats: priceDistribution[0] || { avgPrice: 0, minPrice: 0, maxPrice: 0, totalValue: 0 },

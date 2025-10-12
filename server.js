@@ -27,7 +27,9 @@ const criticalRoutes = [
   './api/cart',
   './api/admin',
   './api/stats',
-  './api/auth'
+  './api/auth',
+  './api/inventory',
+  './api/suppliers'
 ];
 
 // Heavy routes that can be loaded on-demand

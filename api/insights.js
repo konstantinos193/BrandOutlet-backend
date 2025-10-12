@@ -2,18 +2,27 @@ const express = require('express');
 const router = express.Router();
 const insightsService = require('../services/insightsService');
 const realDataInsightsService = require('../services/realDataInsightsService');
+const comprehensiveDataService = require('../services/comprehensiveDataService');
+const aiInsightsGenerator = require('../services/aiInsightsGenerator');
 
-// GET /api/insights - Get AI-powered insights (now using real data)
+// GET /api/insights - Get comprehensive AI-powered insights
 router.get('/', async (req, res) => {
   try {
     const { focus = 'all', useRealData = 'true', useAI = 'true' } = req.query;
     
-    console.log(`🤖 AI insights requested with focus: ${focus}, real data: ${useRealData}, AI: ${useAI}`);
+    console.log(`🤖 Comprehensive AI insights requested with focus: ${focus}, real data: ${useRealData}, AI: ${useAI}`);
     
     let insights;
     if (useRealData === 'true') {
-      // Use real data insights service with optional AI enhancement
-      insights = await realDataInsightsService.generateInsights(focus, useAI === 'true');
+      if (useAI === 'true') {
+        // Use comprehensive data with AI enhancement
+        console.log('📊 Gathering comprehensive data for AI insights...');
+        const comprehensiveData = await comprehensiveDataService.getComprehensiveData();
+        insights = await aiInsightsGenerator.generateAIInsights(comprehensiveData, focus);
+      } else {
+        // Use real data insights service with rule-based generation
+        insights = await realDataInsightsService.generateInsights(focus, false);
+      }
     } else {
       // Fallback to mock data service
       insights = await insightsService.generateInsights(focus);
@@ -23,13 +32,36 @@ router.get('/', async (req, res) => {
       success: true,
       data: insights,
       timestamp: new Date().toISOString(),
-      dataSource: useRealData === 'true' ? (useAI === 'true' ? 'ai-enhanced' : 'real-rule-based') : 'mock'
+      dataSource: useRealData === 'true' ? (useAI === 'true' ? 'comprehensive-ai-enhanced' : 'real-rule-based') : 'mock'
     });
   } catch (error) {
     console.error('Error generating insights:', error);
     res.status(500).json({
       success: false,
       error: 'Failed to generate insights',
+      message: error.message
+    });
+  }
+});
+
+// GET /api/insights/comprehensive - Get comprehensive data for analysis
+router.get('/comprehensive', async (req, res) => {
+  try {
+    console.log('📊 Comprehensive data requested');
+    
+    const comprehensiveData = await comprehensiveDataService.getComprehensiveData();
+    
+    res.json({
+      success: true,
+      data: comprehensiveData,
+      timestamp: new Date().toISOString(),
+      dataSource: 'comprehensive'
+    });
+  } catch (error) {
+    console.error('Error getting comprehensive data:', error);
+    res.status(500).json({
+      success: false,
+      error: 'Failed to get comprehensive data',
       message: error.message
     });
   }

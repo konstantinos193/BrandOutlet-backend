@@ -54,15 +54,11 @@ class AnalyticsService {
       const [
         totalProducts,
         activeProducts,
-        verifiedProducts,
-        pendingVerifications,
         lowStockProducts,
         topCategories
       ] = await Promise.all([
         productsCollection.countDocuments(),
         productsCollection.countDocuments({ isActive: true }),
-        productsCollection.countDocuments({ 'authenticity.isVerified': true }),
-        productsCollection.countDocuments({ 'authenticity.isVerified': false, isActive: true }),
         productsCollection.countDocuments({ stock: { $lte: 5 }, isActive: true }),
         this.getTopCategories()
       ]);
@@ -72,11 +68,8 @@ class AnalyticsService {
       return {
         totalProducts,
         activeProducts,
-        verifiedProducts,
-        pendingVerifications,
         lowStockProducts,
-        topCategories,
-        verificationRate: totalProducts > 0 ? ((verifiedProducts / totalProducts) * 100).toFixed(1) : 0
+        topCategories
       };
     } catch (error) {
       console.error('❌ Error fetching product metrics:', error);
@@ -84,11 +77,8 @@ class AnalyticsService {
       return {
         totalProducts: 0,
         activeProducts: 0,
-        verifiedProducts: 0,
-        pendingVerifications: 0,
         lowStockProducts: 0,
-        topCategories: [],
-        verificationRate: 0
+        topCategories: []
       };
     }
   }
