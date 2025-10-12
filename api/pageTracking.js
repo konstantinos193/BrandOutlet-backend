@@ -217,30 +217,34 @@ router.get('/analytics', verifyToken, async (req, res) => {
   try {
     const { timeframe = '7d', page } = req.query;
     
-    let filteredViews = [...pageViews];
+    // Initialize database connection
+    const database = await initializeDB();
+    const pageViewsCollection = database.collection('pageViews');
     
-    // Apply time filter
-    const now = new Date();
+    // Build query for time filter
+    let query = {};
     const timeFilter = getTimeFilter(timeframe);
     if (timeFilter) {
-      filteredViews = filteredViews.filter(view => 
-        new Date(view.timestamp) >= timeFilter
-      );
+      query.timestamp = { $gte: timeFilter };
     }
-
+    
     // Apply page filter
     if (page) {
-      filteredViews = filteredViews.filter(view => view.page === page);
+      query.page = page;
     }
-
-    const analytics = calculatePageAnalytics(filteredViews);
+    
+    // Fetch page views from database
+    const pageViews = await pageViewsCollection.find(query).toArray();
+    
+    // Calculate analytics from the fetched data
+    const analytics = calculatePageAnalytics(pageViews);
 
     res.json({
       success: true,
       data: {
         ...analytics,
         timeframe,
-        totalViews: filteredViews.length,
+        totalViews: pageViews.length,
         generatedAt: new Date()
       }
     });
@@ -259,11 +263,26 @@ router.get('/popular-pages', verifyToken, async (req, res) => {
   try {
     const { limit = 10 } = req.query;
     
-    const popularPages = Object.entries(pageAnalytics.pageViews)
+    // Initialize database connection
+    const database = await initializeDB();
+    const pageViewsCollection = database.collection('pageViews');
+    
+    // Fetch all page views from database
+    const pageViews = await pageViewsCollection.find({}).toArray();
+    
+    // Calculate page view counts
+    const pageViewCounts = {};
+    pageViews.forEach(view => {
+      pageViewCounts[view.page] = (pageViewCounts[view.page] || 0) + 1;
+    });
+    
+    const totalViews = pageViews.length;
+    
+    const popularPages = Object.entries(pageViewCounts)
       .map(([page, count]) => ({
         page,
         views: count,
-        percentage: ((count / pageAnalytics.totalViews) * 100).toFixed(1)
+        percentage: ((count / totalViews) * 100).toFixed(1)
       }))
       .sort((a, b) => b.views - a.views)
       .slice(0, parseInt(limit));
@@ -272,8 +291,8 @@ router.get('/popular-pages', verifyToken, async (req, res) => {
       success: true,
       data: {
         popularPages,
-        totalPages: Object.keys(pageAnalytics.pageViews).length,
-        totalViews: pageAnalytics.totalViews
+        totalPages: Object.keys(pageViewCounts).length,
+        totalViews: totalViews
       }
     });
 
@@ -289,6 +308,13 @@ router.get('/popular-pages', verifyToken, async (req, res) => {
 // GET /api/page-tracking/export - Export page tracking data
 router.get('/export', verifyToken, async (req, res) => {
   try {
+    // Initialize database connection
+    const database = await initializeDB();
+    const pageViewsCollection = database.collection('pageViews');
+    
+    // Fetch all page views from database
+    const pageViews = await pageViewsCollection.find({}).toArray();
+    
     const csvHeader = 'ID,Page,Path,Referrer,Timestamp,Duration,IP Address,User Agent\n';
     const csvData = pageViews.map(view => 
       `${view.id},${view.page},${view.path},${view.referrer || ''},${view.timestamp},${view.duration || 0},${view.ipAddress},${view.userAgent}`
