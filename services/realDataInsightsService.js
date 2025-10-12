@@ -470,20 +470,22 @@ class RealDataInsightsService {
     const { products, variants, pageTracking } = realData;
 
     // Product performance insights
-    if (products.verificationRate < 50) {
+    // Removed product verification insight as it doesn't apply to admin-managed products
+    // Check for product diversity instead
+    if (products.productsByCategory && products.productsByCategory.length < 3) {
       insights.push({
         id: `sales-${Date.now()}-1`,
         type: 'sales',
-        title: 'Low Product Verification Rate',
-        content: `Only ${products.verificationRate}% of products are verified. Increasing verification can boost customer trust and sales.`,
-        priority: 'high',
-        confidence: 90,
+        title: 'Limited Product Categories',
+        content: `You have products in only ${products.productsByCategory.length} categories. Diversifying your product range across more categories can attract a broader customer base.`,
+        priority: 'medium',
+        confidence: 85,
         actionable: true,
-        category: 'verification',
+        category: 'inventory',
         metrics: {
-          currentRate: products.verificationRate + '%',
-          target: '80%',
-          impact: 'High'
+          currentCategories: products.productsByCategory.length,
+          recommended: '5+',
+          impact: 'Medium'
         }
       });
     }

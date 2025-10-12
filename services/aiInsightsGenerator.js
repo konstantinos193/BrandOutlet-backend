@@ -7,6 +7,15 @@ class AIInsightsGenerator {
     this.useOpenAI = !!this.openaiApiKey;
     this.useHuggingFace = !!this.huggingFaceApiKey;
     
+    // Enhanced Hugging Face models for better insights
+    this.models = {
+      sentiment: 'cardiffnlp/twitter-roberta-base-sentiment-latest',
+      summarization: 'facebook/bart-large-cnn',
+      emotion: 'cardiffnlp/twitter-roberta-base-emotion',
+      classification: 'distilbert-base-uncased-finetuned-sst-2-english',
+      multilingual: 'nlptown/bert-base-multilingual-uncased-sentiment'
+    };
+    
     if (!this.openaiApiKey && !this.huggingFaceApiKey) {
       console.warn('⚠️ No AI API keys found. AI insights will use rule-based generation.');
     }
@@ -118,6 +127,115 @@ class AIInsightsGenerator {
     // If all models fail, fall back to rule-based insights
     console.warn('All Hugging Face models failed, falling back to rule-based insights');
     return await this.generateRuleBasedInsights(realData, focus);
+  }
+
+  // Enhanced sentiment analysis for customer feedback
+  async analyzeCustomerSentiment(feedbackText) {
+    try {
+      const response = await axios.post(
+        `https://api-inference.huggingface.co/models/${this.models.sentiment}`,
+        {
+          inputs: feedbackText,
+          parameters: {
+            return_all_scores: true
+          }
+        },
+        {
+          headers: {
+            'Authorization': `Bearer ${this.huggingFaceApiKey}`,
+            'Content-Type': 'application/json'
+          },
+          timeout: 10000
+        }
+      );
+
+      const scores = response.data[0];
+      const topSentiment = scores.reduce((prev, current) => 
+        (prev.score > current.score) ? prev : current
+      );
+
+      return {
+        sentiment: topSentiment.label,
+        confidence: topSentiment.score,
+        timestamp: new Date().toISOString()
+      };
+    } catch (error) {
+      console.error('Error analyzing sentiment:', error);
+      return {
+        sentiment: 'neutral',
+        confidence: 0.5,
+        timestamp: new Date().toISOString()
+      };
+    }
+  }
+
+  // Generate text summaries for insights
+  async generateInsightSummary(insightData) {
+    try {
+      const response = await axios.post(
+        `https://api-inference.huggingface.co/models/${this.models.summarization}`,
+        {
+          inputs: insightData,
+          parameters: {
+            max_length: 150,
+            min_length: 30,
+            do_sample: false
+          }
+        },
+        {
+          headers: {
+            'Authorization': `Bearer ${this.huggingFaceApiKey}`,
+            'Content-Type': 'application/json'
+          },
+          timeout: 10000
+        }
+      );
+
+      return response.data[0]?.summary_text || insightData;
+    } catch (error) {
+      console.error('Error generating summary:', error);
+      return insightData; // Return original data if summarization fails
+    }
+  }
+
+  // Analyze customer emotions from feedback
+  async analyzeCustomerEmotions(feedbackText) {
+    try {
+      const response = await axios.post(
+        `https://api-inference.huggingface.co/models/${this.models.emotion}`,
+        {
+          inputs: feedbackText,
+          parameters: {
+            return_all_scores: true
+          }
+        },
+        {
+          headers: {
+            'Authorization': `Bearer ${this.huggingFaceApiKey}`,
+            'Content-Type': 'application/json'
+          },
+          timeout: 10000
+        }
+      );
+
+      const scores = response.data[0];
+      const topEmotion = scores.reduce((prev, current) => 
+        (prev.score > current.score) ? prev : current
+      );
+
+      return {
+        emotion: topEmotion.label,
+        confidence: topEmotion.score,
+        timestamp: new Date().toISOString()
+      };
+    } catch (error) {
+      console.error('Error analyzing emotions:', error);
+      return {
+        emotion: 'neutral',
+        confidence: 0.5,
+        timestamp: new Date().toISOString()
+      };
+    }
   }
 
   // Build comprehensive prompt for OpenAI
@@ -386,20 +504,23 @@ class AIInsightsGenerator {
     const { products, variants, pageTracking } = realData;
 
     // High-priority insights based on data patterns
-    if (products.verificationRate < 30) {
+    // Removed product verification insight as it doesn't apply to admin-managed products
+    
+    // Check for low product count instead
+    if (products.totalProducts < 10) {
       insights.push({
         id: `rule-${Date.now()}-1`,
-        title: 'Low Product Verification Rate',
-        content: `Only ${products.verificationRate}% of products are verified. This significantly impacts customer trust and conversion rates.`,
-        priority: 'high',
-        confidence: 95,
+        title: 'Low Product Count',
+        content: `You currently have ${products.totalProducts} products in your catalog. Consider adding more products to increase variety and attract more customers.`,
+        priority: 'medium',
+        confidence: 90,
         actionable: true,
-        category: 'verification',
+        category: 'inventory',
         type: 'sales',
         metrics: {
-          currentRate: products.verificationRate + '%',
-          target: '80%',
-          impact: 'High'
+          currentCount: products.totalProducts,
+          recommended: '50+',
+          impact: 'Medium'
         }
       });
     }
@@ -422,9 +543,104 @@ class AIInsightsGenerator {
       });
     }
 
-    if (pageTracking.growthRate < -20) {
+    // Check for low stock products
+    if (variants.stockDistribution.lowStock > variants.totalVariants * 0.2) {
       insights.push({
         id: `rule-${Date.now()}-3`,
+        title: 'High Low-Stock Alert',
+        content: `${variants.stockDistribution.lowStock} variants are running low on stock. Consider restocking popular items to avoid stockouts.`,
+        priority: 'medium',
+        confidence: 85,
+        actionable: true,
+        category: 'inventory',
+        type: 'sales',
+        metrics: {
+          lowStock: variants.stockDistribution.lowStock,
+          percentage: ((variants.stockDistribution.lowStock / variants.totalVariants) * 100).toFixed(1) + '%',
+          totalVariants: variants.totalVariants
+        }
+      });
+    }
+
+    // Check for pricing opportunities
+    if (products.priceStats && products.priceStats.avgPrice > 0) {
+      const priceRange = products.priceStats.maxPrice - products.priceStats.minPrice;
+      const avgPrice = products.priceStats.avgPrice;
+      
+      if (priceRange > avgPrice * 2) {
+        insights.push({
+          id: `rule-${Date.now()}-4`,
+          title: 'Wide Price Range Detected',
+          content: `Your products have a wide price range (€${products.priceStats.minPrice} - €${products.priceStats.maxPrice}). Consider adding more mid-range products to capture different customer segments.`,
+          priority: 'low',
+          confidence: 80,
+          actionable: true,
+          category: 'pricing',
+          type: 'sales',
+          metrics: {
+            minPrice: '€' + products.priceStats.minPrice,
+            maxPrice: '€' + products.priceStats.maxPrice,
+            avgPrice: '€' + Math.round(avgPrice),
+            range: '€' + priceRange
+          }
+        });
+      }
+    }
+
+    // AI-Enhanced Customer Sentiment Insights (if we have feedback data)
+    if (realData.customerFeedback && realData.customerFeedback.length > 0) {
+      try {
+        const recentFeedback = realData.customerFeedback.slice(-10); // Last 10 feedback items
+        const feedbackText = recentFeedback.map(f => f.text || f.comment || f.review).join(' ');
+        
+        if (feedbackText.trim()) {
+          const sentimentAnalysis = await this.analyzeCustomerSentiment(feedbackText);
+          const emotionAnalysis = await this.analyzeCustomerEmotions(feedbackText);
+          
+          if (sentimentAnalysis.sentiment === 'negative' && sentimentAnalysis.confidence > 0.7) {
+            insights.push({
+              id: `ai-${Date.now()}-1`,
+              title: 'Negative Customer Sentiment Detected',
+              content: `Recent customer feedback shows negative sentiment (${sentimentAnalysis.confidence.toFixed(2)} confidence). Primary emotion: ${emotionAnalysis.emotion}. Consider addressing customer concerns promptly.`,
+              priority: 'high',
+              confidence: Math.round(sentimentAnalysis.confidence * 100),
+              actionable: true,
+              category: 'customer',
+              type: 'users',
+              metrics: {
+                sentiment: sentimentAnalysis.sentiment,
+                confidence: Math.round(sentimentAnalysis.confidence * 100) + '%',
+                emotion: emotionAnalysis.emotion,
+                feedbackCount: recentFeedback.length
+              }
+            });
+          } else if (sentimentAnalysis.sentiment === 'positive' && sentimentAnalysis.confidence > 0.8) {
+            insights.push({
+              id: `ai-${Date.now()}-2`,
+              title: 'Positive Customer Sentiment',
+              content: `Recent customer feedback shows positive sentiment (${sentimentAnalysis.confidence.toFixed(2)} confidence). Primary emotion: ${emotionAnalysis.emotion}. Great job maintaining customer satisfaction!`,
+              priority: 'low',
+              confidence: Math.round(sentimentAnalysis.confidence * 100),
+              actionable: false,
+              category: 'customer',
+              type: 'users',
+              metrics: {
+                sentiment: sentimentAnalysis.sentiment,
+                confidence: Math.round(sentimentAnalysis.confidence * 100) + '%',
+                emotion: emotionAnalysis.emotion,
+                feedbackCount: recentFeedback.length
+              }
+            });
+          }
+        }
+      } catch (error) {
+        console.error('Error processing customer sentiment:', error);
+      }
+    }
+
+    if (pageTracking.growthRate < -20) {
+      insights.push({
+        id: `rule-${Date.now()}-5`,
         title: 'Significant Traffic Decline',
         content: `Page views decreased by ${Math.abs(pageTracking.growthRate)}% compared to yesterday. This requires immediate attention to identify and resolve the issue.`,
         priority: 'high',

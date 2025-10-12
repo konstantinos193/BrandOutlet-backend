@@ -175,4 +175,73 @@ router.post('/clear-cache', async (req, res) => {
   }
 });
 
+// POST /api/insights/analyze-sentiment - Test enhanced AI sentiment analysis
+router.post('/analyze-sentiment', async (req, res) => {
+  try {
+    const { text } = req.body;
+    
+    if (!text) {
+      return res.status(400).json({
+        success: false,
+        error: 'Text is required for sentiment analysis'
+      });
+    }
+
+    const aiInsightsGenerator = require('../services/aiInsightsGenerator');
+    
+    const sentimentResult = await aiInsightsGenerator.analyzeCustomerSentiment(text);
+    const emotionResult = await aiInsightsGenerator.analyzeCustomerEmotions(text);
+    
+    res.json({
+      success: true,
+      data: {
+        text: text,
+        sentiment: sentimentResult,
+        emotion: emotionResult,
+        timestamp: new Date().toISOString()
+      }
+    });
+  } catch (error) {
+    console.error('Error analyzing sentiment:', error);
+    res.status(500).json({
+      success: false,
+      error: 'Failed to analyze sentiment',
+      message: error.message
+    });
+  }
+});
+
+// POST /api/insights/generate-summary - Test text summarization
+router.post('/generate-summary', async (req, res) => {
+  try {
+    const { text } = req.body;
+    
+    if (!text) {
+      return res.status(400).json({
+        success: false,
+        error: 'Text is required for summarization'
+      });
+    }
+
+    const aiInsightsGenerator = require('../services/aiInsightsGenerator');
+    const summary = await aiInsightsGenerator.generateInsightSummary(text);
+    
+    res.json({
+      success: true,
+      data: {
+        original: text,
+        summary: summary,
+        timestamp: new Date().toISOString()
+      }
+    });
+  } catch (error) {
+    console.error('Error generating summary:', error);
+    res.status(500).json({
+      success: false,
+      error: 'Failed to generate summary',
+      message: error.message
+    });
+  }
+});
+
 module.exports = router;
