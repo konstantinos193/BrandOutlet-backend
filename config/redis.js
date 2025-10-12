@@ -87,6 +87,37 @@ function createRedisClient() {
     }
   };
 
+  // Add invalidatePattern method
+  client.invalidatePattern = async (pattern) => {
+    try {
+      const keys = await client.keys(pattern);
+      if (keys.length > 0) {
+        return await client.del(keys);
+      }
+      return 0;
+    } catch (error) {
+      console.error('Error invalidating pattern:', error);
+      return 0;
+    }
+  };
+
+  // Add flush method
+  client.flush = async () => {
+    try {
+      return await client.flushAll();
+    } catch (error) {
+      console.error('Error flushing cache:', error);
+      return 'ERROR';
+    }
+  };
+
+  // Add isConnected property
+  Object.defineProperty(client, 'isConnected', {
+    get: function() {
+      return this.isOpen;
+    }
+  });
+
   return client;
 }
 
@@ -150,6 +181,26 @@ function createFallbackClient() {
       // In fallback mode, just execute the function without caching
       console.log(`⚠️ Cache fallback for key: ${key}`);
       return await fetchFunction();
+    },
+    invalidatePattern: async (pattern) => {
+      console.log(`⚠️ Cache fallback - invalidatePattern: ${pattern}`);
+      return 0;
+    },
+    flush: async () => {
+      console.log('⚠️ Cache fallback - flush');
+      return 'OK';
+    },
+    keys: async (pattern) => {
+      console.log(`⚠️ Cache fallback - keys: ${pattern}`);
+      return [];
+    },
+    flushAll: async () => {
+      console.log('⚠️ Cache fallback - flushAll');
+      return 'OK';
+    },
+    info: async (section) => {
+      console.log(`⚠️ Cache fallback - info: ${section}`);
+      return 'fallback mode';
     }
   };
 }

@@ -2,7 +2,7 @@
  * Cache service for API queries with Redis
  */
 
-const redisClient = require('../config/redis');
+const { getRedisClient } = require('../config/redis');
 const crypto = require('crypto');
 
 class CacheService {
@@ -38,6 +38,7 @@ class CacheService {
    */
   async cacheProducts(params, fetchFunction) {
     const key = this.generateKey('products', params);
+    const redisClient = getRedisClient();
     return await redisClient.cache(key, fetchFunction, this.defaultTTL.products);
   }
 
@@ -46,6 +47,7 @@ class CacheService {
    */
   async cacheAnalytics(params, fetchFunction) {
     const key = this.generateKey('analytics', params);
+    const redisClient = getRedisClient();
     return await redisClient.cache(key, fetchFunction, this.defaultTTL.analytics);
   }
 
@@ -54,6 +56,7 @@ class CacheService {
    */
   async cacheSearch(params, fetchFunction) {
     const key = this.generateKey('search', params);
+    const redisClient = getRedisClient();
     return await redisClient.cache(key, fetchFunction, this.defaultTTL.search);
   }
 
@@ -62,6 +65,7 @@ class CacheService {
    */
   async cacheUserPreferences(userId, fetchFunction) {
     const key = this.generateKey('user-preferences', { userId });
+    const redisClient = getRedisClient();
     return await redisClient.cache(key, fetchFunction, this.defaultTTL.userPreferences);
   }
 
@@ -70,6 +74,7 @@ class CacheService {
    */
   async cacheAdminDashboard(params, fetchFunction) {
     const key = this.generateKey('admin-dashboard', params);
+    const redisClient = getRedisClient();
     return await redisClient.cache(key, fetchFunction, this.defaultTTL.admin);
   }
 
@@ -78,6 +83,7 @@ class CacheService {
    */
   async cacheFacets(params, fetchFunction) {
     const key = this.generateKey('facets', params);
+    const redisClient = getRedisClient();
     return await redisClient.cache(key, fetchFunction, this.defaultTTL.facets);
   }
 
@@ -85,6 +91,7 @@ class CacheService {
    * Cache with custom TTL
    */
   async cacheWithTTL(key, fetchFunction, ttl) {
+    const redisClient = getRedisClient();
     return await redisClient.cache(key, fetchFunction, ttl);
   }
 
@@ -92,6 +99,7 @@ class CacheService {
    * Invalidate cache by pattern
    */
   async invalidatePattern(pattern) {
+    const redisClient = getRedisClient();
     return await redisClient.invalidatePattern(pattern);
   }
 
@@ -134,6 +142,7 @@ class CacheService {
    * Invalidate all cache
    */
   async invalidateAll() {
+    const redisClient = getRedisClient();
     return await redisClient.flush();
   }
 
@@ -141,7 +150,8 @@ class CacheService {
    * Get cache statistics
    */
   async getStats() {
-    if (!redisClient.isConnected) {
+    const redisClient = getRedisClient();
+    if (!redisClient || !redisClient.isConnected) {
       return {
         connected: false,
         message: 'Redis not connected'
@@ -149,14 +159,14 @@ class CacheService {
     }
 
     try {
-      const info = await redisClient.client.info('memory');
-      const keyspace = await redisClient.client.info('keyspace');
+      const info = await redisClient.info('memory');
+      const keyspace = await redisClient.info('keyspace');
       
       return {
         connected: true,
         memory: info,
         keyspace: keyspace,
-        uptime: await redisClient.client.info('server')
+        uptime: await redisClient.info('server')
       };
     } catch (error) {
       return {
@@ -170,6 +180,7 @@ class CacheService {
    * Health check
    */
   async healthCheck() {
+    const redisClient = getRedisClient();
     return await redisClient.ping();
   }
 
@@ -180,6 +191,7 @@ class CacheService {
     return async (req, res, next) => {
       const originalSend = res.send;
       const cacheKey = this.generateKey(req.path, req.query);
+      const redisClient = getRedisClient();
 
       // Try to get from cache
       const cached = await redisClient.get(cacheKey);

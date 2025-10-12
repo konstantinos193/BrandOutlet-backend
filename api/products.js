@@ -72,106 +72,104 @@ router.get('/', async (req, res) => {
     const result = await cacheService.cacheProducts(cacheParams, async () => {
       console.log('📦 Cache MISS - Fetching from database');
 
-    // Build query filters
-    let query = { isActive: true };
+      // Build query filters
+      let query = { isActive: true };
 
-    // Search filter
-    if (search) {
-      query.$or = [
-        { name: { $regex: search, $options: 'i' } },
-        { description: { $regex: search, $options: 'i' } },
-        { 'brand.name': { $regex: search, $options: 'i' } },
-        { category: { $regex: search, $options: 'i' } }
-      ];
-    }
+      // Search filter
+      if (search) {
+        query.$or = [
+          { name: { $regex: search, $options: 'i' } },
+          { description: { $regex: search, $options: 'i' } },
+          { 'brand.name': { $regex: search, $options: 'i' } },
+          { category: { $regex: search, $options: 'i' } }
+        ];
+      }
 
-    // Brand filter
-    if (brands) {
-      const brandArray = brands.split(',');
-      query['brand.name'] = { $in: brandArray };
-    }
+      // Brand filter
+      if (brands) {
+        const brandArray = brands.split(',');
+        query['brand.name'] = { $in: brandArray };
+      }
 
-    // Category filter
-    if (categories) {
-      const categoryArray = categories.split(',');
-      query.category = { $in: categoryArray };
-    }
+      // Category filter
+      if (categories) {
+        const categoryArray = categories.split(',');
+        query.category = { $in: categoryArray };
+      }
 
-    // Price range filter
-    if (minPrice || maxPrice) {
-      query.price = {};
-      if (minPrice) query.price.$gte = parseFloat(minPrice);
-      if (maxPrice) query.price.$lte = parseFloat(maxPrice);
-    }
+      // Price range filter
+      if (minPrice || maxPrice) {
+        query.price = {};
+        if (minPrice) query.price.$gte = parseFloat(minPrice);
+        if (maxPrice) query.price.$lte = parseFloat(maxPrice);
+      }
 
-    // Condition filter
-    if (condition) {
-      query.condition = condition;
-    }
+      // Condition filter
+      if (condition) {
+        query.condition = condition;
+      }
 
-    // Size filter
-    if (size) {
-      query.sizes = { $in: [size] };
-    }
+      // Size filter
+      if (size) {
+        query.sizes = { $in: [size] };
+      }
 
-    // Color filter
-    if (color) {
-      query.colors = { $in: [color] };
-    }
+      // Color filter
+      if (color) {
+        query.colors = { $in: [color] };
+      }
 
-    // Stock filter
-    if (inStock === 'true') {
-      query.stock = { $gt: 0 };
-    }
+      // Stock filter
+      if (inStock === 'true') {
+        query.stock = { $gt: 0 };
+      }
 
-    // Calculate pagination
-    const skip = (parseInt(page) - 1) * parseInt(limit);
+      // Calculate pagination
+      const skip = (parseInt(page) - 1) * parseInt(limit);
 
-    // Build sort object
-    const sort = {};
-    sort[sortBy] = sortOrder === 'desc' ? -1 : 1;
+      // Build sort object
+      const sort = {};
+      sort[sortBy] = sortOrder === 'desc' ? -1 : 1;
 
-    // Get products from database
-    const products = await Product.find(query)
-      .populate('brand', 'name logo')
-      .sort(sort)
-      .skip(skip)
-      .limit(parseInt(limit));
+      // Get products from database
+      const products = await Product.find(query)
+        .populate('brand', 'name logo')
+        .sort(sort)
+        .skip(skip)
+        .limit(parseInt(limit));
 
-    // Get total count for pagination
-    const total = await Product.countDocuments(query);
+      // Get total count for pagination
+      const total = await Product.countDocuments(query);
 
-    // Transform products to match expected format
-    const transformedProducts = products.map(product => ({
-      id: product._id.toString(),
-      name: product.name,
-      brand: {
-        name: product.brand?.name || 'Unknown',
-        logo: product.brand?.logo || '/brands/default.png'
-      },
-      price: product.price || 0,
-      originalPrice: product.originalPrice || product.price || 0,
-      discount: product.discount || 0,
-      images: product.images || ['/products/placeholder.jpg'],
-      category: product.category || 'Other',
-      condition: product.condition || 'New',
-      sizes: product.sizes || [],
-      colors: product.colors || [],
-      stock: product.stock || 0,
-      description: product.description || '',
-      features: product.features || [],
-      isActive: product.isActive !== false,
-      isFeatured: product.isFeatured || false,
-      rating: product.rating || 0,
-      reviewCount: product.reviewCount || 0,
-      salesCount: product.salesCount || 0,
-      createdAt: product.createdAt || new Date(),
-      updatedAt: product.updatedAt || new Date()
-    }));
+      // Transform products to match expected format
+      const transformedProducts = products.map(product => ({
+        id: product._id.toString(),
+        name: product.name,
+        brand: {
+          name: product.brand?.name || 'Unknown',
+          logo: product.brand?.logo || '/brands/default.png'
+        },
+        price: product.price || 0,
+        originalPrice: product.originalPrice || product.price || 0,
+        discount: product.discount || 0,
+        images: product.images || ['/products/placeholder.jpg'],
+        category: product.category || 'Other',
+        condition: product.condition || 'New',
+        sizes: product.sizes || [],
+        colors: product.colors || [],
+        stock: product.stock || 0,
+        description: product.description || '',
+        features: product.features || [],
+        isActive: product.isActive !== false,
+        isFeatured: product.isFeatured || false,
+        rating: product.rating || 0,
+        reviewCount: product.reviewCount || 0,
+        salesCount: product.salesCount || 0,
+        createdAt: product.createdAt || new Date(),
+        updatedAt: product.updatedAt || new Date()
+      }));
 
-    res.json({
-      success: true,
-      data: {
+      return {
         products: transformedProducts,
         pagination: {
           page: parseInt(page),
@@ -190,7 +188,12 @@ router.get('/', async (req, res) => {
           color,
           inStock: inStock === 'true'
         }
-      }
+      };
+    });
+
+    res.json({
+      success: true,
+      data: result
     });
 
   } catch (error) {
