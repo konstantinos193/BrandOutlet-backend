@@ -16,8 +16,8 @@ const createRateLimit = (windowMs, max, message, skipSuccessfulRequests = false)
       if (req.user && req.user.id) {
         return `auth:${req.user.id}`;
       }
-      // Otherwise use IP address
-      return req.ip;
+      // Otherwise use IP address with proper IPv6 handling
+      return req.ip || req.connection.remoteAddress || req.socket.remoteAddress || 'unknown';
     },
     // Custom handler for rate limit exceeded
     handler: (req, res) => {
