@@ -147,6 +147,10 @@ app.use('/api/', (req, res, next) => {
   if (req.path.startsWith('/admin')) {
     return next();
   }
+  // Skip rate limiting for authentication routes (login, register, etc.)
+  if (req.path.startsWith('/auth')) {
+    return next();
+  }
   // Skip rate limiting for trappers API (public data, no sensitive operations)
   if (req.path.startsWith('/trappers')) {
     return next();
