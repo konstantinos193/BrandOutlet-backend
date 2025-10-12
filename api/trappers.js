@@ -1,6 +1,23 @@
 const express = require('express');
 const router = express.Router();
 
+// Simple in-memory cache for trappers data
+let trappersCache = null;
+let regionsCache = null;
+const CACHE_DURATION = 5 * 60 * 1000; // 5 minutes
+let lastCacheTime = 0;
+
+// Cache helper functions
+const isCacheValid = () => {
+  return trappersCache && regionsCache && (Date.now() - lastCacheTime) < CACHE_DURATION;
+};
+
+const updateCache = () => {
+  trappersCache = trappers;
+  regionsCache = regions;
+  lastCacheTime = Date.now();
+};
+
 // Trapper data - in a real app this would come from a database
 const trappers = [
   // US East Coast
@@ -151,17 +168,30 @@ const regions = [
 // GET /api/trappers - Get all trappers
 router.get('/', (req, res) => {
   try {
+    // Update cache if needed
+    if (!isCacheValid()) {
+      updateCache();
+    }
+
     const { region } = req.query;
     
-    let filteredTrappers = trappers;
+    let filteredTrappers = trappersCache;
     if (region && region !== 'All Regions') {
-      filteredTrappers = trappers.filter(trapper => trapper.region === region);
+      filteredTrappers = trappersCache.filter(trapper => trapper.region === region);
     }
+
+    // Add cache headers for client-side caching
+    res.set({
+      'Cache-Control': 'public, max-age=300', // 5 minutes
+      'ETag': `"trappers-${lastCacheTime}"`
+    });
 
     res.json({
       success: true,
       data: filteredTrappers,
-      total: filteredTrappers.length
+      total: filteredTrappers.length,
+      cached: true,
+      cacheTime: lastCacheTime
     });
   } catch (error) {
     console.error('Error fetching trappers:', error);
@@ -176,9 +206,22 @@ router.get('/', (req, res) => {
 // GET /api/trappers/regions - Get all regions
 router.get('/regions', (req, res) => {
   try {
+    // Update cache if needed
+    if (!isCacheValid()) {
+      updateCache();
+    }
+
+    // Add cache headers for client-side caching
+    res.set({
+      'Cache-Control': 'public, max-age=300', // 5 minutes
+      'ETag': `"regions-${lastCacheTime}"`
+    });
+
     res.json({
       success: true,
-      data: regions
+      data: regionsCache,
+      cached: true,
+      cacheTime: lastCacheTime
     });
   } catch (error) {
     console.error('Error fetching regions:', error);
@@ -193,8 +236,13 @@ router.get('/regions', (req, res) => {
 // GET /api/trappers/:id - Get specific trapper
 router.get('/:id', (req, res) => {
   try {
+    // Update cache if needed
+    if (!isCacheValid()) {
+      updateCache();
+    }
+
     const { id } = req.params;
-    const trapper = trappers.find(t => t.id === id);
+    const trapper = trappersCache.find(t => t.id === id);
     
     if (!trapper) {
       return res.status(404).json({
@@ -203,9 +251,17 @@ router.get('/:id', (req, res) => {
       });
     }
 
+    // Add cache headers for client-side caching
+    res.set({
+      'Cache-Control': 'public, max-age=300', // 5 minutes
+      'ETag': `"trapper-${id}-${lastCacheTime}"`
+    });
+
     res.json({
       success: true,
-      data: trapper
+      data: trapper,
+      cached: true,
+      cacheTime: lastCacheTime
     });
   } catch (error) {
     console.error('Error fetching trapper:', error);
