@@ -703,7 +703,11 @@ class AIInsightsGenerator {
   // Generate rule-based insights as fallback
   async generateRuleBasedInsights(realData, focus) {
     const insights = [];
-    const { products, variants, pageTracking } = realData;
+    const { 
+      products, users, sales, seo, geolocation, performance, 
+      inventory, search, pageTracking, userPreferences, 
+      realTime, financial 
+    } = realData;
 
     // High-priority insights based on data patterns
     // Removed product verification insight as it doesn't apply to admin-managed products
@@ -727,41 +731,47 @@ class AIInsightsGenerator {
       });
     }
 
-    if (variants.stockDistribution.outOfStock > variants.totalVariants * 0.1) {
-      insights.push({
-        id: `rule-${Date.now()}-2`,
-        title: 'High Out-of-Stock Rate',
-        content: `${variants.stockDistribution.outOfStock} variants (${((variants.stockDistribution.outOfStock / variants.totalVariants) * 100).toFixed(1)}%) are out of stock. This represents significant lost revenue potential.`,
-        priority: 'high',
-        confidence: 90,
-        actionable: true,
-        category: 'inventory',
-        type: 'sales',
-        metrics: {
-          outOfStock: variants.stockDistribution.outOfStock,
-          percentage: ((variants.stockDistribution.outOfStock / variants.totalVariants) * 100).toFixed(1) + '%',
-          totalVariants: variants.totalVariants
-        }
-      });
+    if (products.stockStats && products.stockStats.outOfStock > 0) {
+      const outOfStockRate = (products.stockStats.outOfStock / products.totalProducts) * 100;
+      if (outOfStockRate > 10) {
+        insights.push({
+          id: `rule-${Date.now()}-2`,
+          title: 'High Out-of-Stock Rate',
+          content: `${products.stockStats.outOfStock} products (${outOfStockRate.toFixed(1)}%) are out of stock. This represents significant lost revenue potential.`,
+          priority: 'high',
+          confidence: 90,
+          actionable: true,
+          category: 'inventory',
+          type: 'sales',
+          metrics: {
+            outOfStock: products.stockStats.outOfStock,
+            percentage: outOfStockRate.toFixed(1) + '%',
+            totalProducts: products.totalProducts
+          }
+        });
+      }
     }
 
     // Check for low stock products
-    if (variants.stockDistribution.lowStock > variants.totalVariants * 0.2) {
-      insights.push({
-        id: `rule-${Date.now()}-3`,
-        title: 'High Low-Stock Alert',
-        content: `${variants.stockDistribution.lowStock} variants are running low on stock. Consider restocking popular items to avoid stockouts.`,
-        priority: 'medium',
-        confidence: 85,
-        actionable: true,
-        category: 'inventory',
-        type: 'sales',
-        metrics: {
-          lowStock: variants.stockDistribution.lowStock,
-          percentage: ((variants.stockDistribution.lowStock / variants.totalVariants) * 100).toFixed(1) + '%',
-          totalVariants: variants.totalVariants
-        }
-      });
+    if (products.stockStats && products.stockStats.lowStock > 0) {
+      const lowStockRate = (products.stockStats.lowStock / products.totalProducts) * 100;
+      if (lowStockRate > 20) {
+        insights.push({
+          id: `rule-${Date.now()}-3`,
+          title: 'High Low-Stock Alert',
+          content: `${products.stockStats.lowStock} products are running low on stock. Consider restocking popular items to avoid stockouts.`,
+          priority: 'medium',
+          confidence: 85,
+          actionable: true,
+          category: 'inventory',
+          type: 'sales',
+          metrics: {
+            lowStock: products.stockStats.lowStock,
+            percentage: lowStockRate.toFixed(1) + '%',
+            totalProducts: products.totalProducts
+          }
+        });
+      }
     }
 
     // Check for pricing opportunities
@@ -784,6 +794,83 @@ class AIInsightsGenerator {
             maxPrice: '€' + products.priceStats.maxPrice,
             avgPrice: '€' + Math.round(avgPrice),
             range: '€' + priceRange
+          }
+        });
+      }
+    }
+
+    // User growth insights
+    if (users.userGrowthRate < 0) {
+      insights.push({
+        id: `rule-${Date.now()}-5`,
+        title: 'Declining User Growth',
+        content: `User growth rate is negative (${users.userGrowthRate}%). Consider implementing user acquisition strategies or improving user retention.`,
+        priority: 'high',
+        confidence: 85,
+        actionable: true,
+        category: 'users',
+        type: 'users',
+        metrics: {
+          growthRate: users.userGrowthRate + '%',
+          totalUsers: users.totalUsers,
+          activeUsers: users.activeUsers
+        }
+      });
+    }
+
+    // Sales performance insights
+    if (sales.revenueGrowth < 0) {
+      insights.push({
+        id: `rule-${Date.now()}-6`,
+        title: 'Declining Revenue',
+        content: `Revenue growth is negative (${sales.revenueGrowth}%). Review pricing strategy, product mix, or marketing efforts.`,
+        priority: 'high',
+        confidence: 90,
+        actionable: true,
+        category: 'sales',
+        type: 'sales',
+        metrics: {
+          revenueGrowth: sales.revenueGrowth + '%',
+          totalRevenue: '$' + (sales.totalRevenue || 0).toLocaleString(),
+          averageOrderValue: '$' + (sales.averageOrderValue || 0).toFixed(2)
+        }
+      });
+    }
+
+    // SEO performance insights
+    if (seo.metrics && Object.keys(seo.metrics).length === 0) {
+      insights.push({
+        id: `rule-${Date.now()}-7`,
+        title: 'No SEO Data Available',
+        content: `No SEO metrics are being tracked. Consider implementing SEO monitoring to improve search visibility and organic traffic.`,
+        priority: 'medium',
+        confidence: 80,
+        actionable: true,
+        category: 'seo',
+        type: 'performance',
+        metrics: {
+          trackedMetrics: 0,
+          recommendation: 'Implement SEO tracking'
+        }
+      });
+    }
+
+    // Performance insights
+    if (performance.pageLoadTimes && performance.pageLoadTimes.length > 0) {
+      const avgLoadTime = performance.pageLoadTimes[0]?.avgLoadTime || 0;
+      if (avgLoadTime > 3) {
+        insights.push({
+          id: `rule-${Date.now()}-8`,
+          title: 'Slow Page Load Times',
+          content: `Average page load time is ${avgLoadTime.toFixed(2)}s, which may impact user experience and SEO. Consider optimizing images, code, or server performance.`,
+          priority: 'medium',
+          confidence: 85,
+          actionable: true,
+          category: 'performance',
+          type: 'performance',
+          metrics: {
+            avgLoadTime: avgLoadTime.toFixed(2) + 's',
+            recommendation: 'Optimize performance'
           }
         });
       }
