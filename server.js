@@ -3,6 +3,7 @@ const cors = require('cors');
 const helmet = require('helmet');
 const morgan = require('morgan');
 const rateLimit = require('express-rate-limit');
+const path = require('path');
 require('dotenv').config();
 
 // Import route loader for dynamic loading
@@ -296,6 +297,252 @@ app.use((err, req, res, next) => {
     error: 'Something went wrong!',
     message: process.env.NODE_ENV === 'development' ? err.message : 'Internal server error'
   });
+});
+
+// Serve Moondalator font
+app.get('/fonts/moondalator/Moogalator-yYJr3.ttf', (req, res) => {
+  res.setHeader('Content-Type', 'font/ttf');
+  res.setHeader('Access-Control-Allow-Origin', '*');
+  res.sendFile(path.join(__dirname, '../BrandOutlet-Frontend/public/fonts/moondalator/Moogalator-yYJr3.ttf'));
+});
+
+// Root route - Ultra cheeky landing page for accidental visitors
+app.get('/', (req, res) => {
+  res.send(`
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>BrandOutlet Backend - Oops! 🎭</title>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap');
+        @font-face {
+            font-family: 'Moondalator';
+            src: url('/fonts/moondalator/Moogalator-yYJr3.ttf') format('truetype');
+            font-weight: normal;
+            font-style: normal;
+        }
+        
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: 'Inter', sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            overflow: hidden;
+            position: relative;
+        }
+        
+        .container {
+            text-align: center;
+            z-index: 10;
+            position: relative;
+            max-width: 800px;
+            padding: 2rem;
+        }
+        
+        .logo {
+            font-family: 'Moondalator', 'Inter', sans-serif;
+            font-size: 4rem;
+            font-weight: 700;
+            color: #fff;
+            text-shadow: 0 0 30px rgba(255, 255, 255, 0.5);
+            margin-bottom: 1rem;
+            animation: glow 2s ease-in-out infinite alternate;
+        }
+        
+        @keyframes glow {
+            from { text-shadow: 0 0 30px rgba(255, 255, 255, 0.5); }
+            to { text-shadow: 0 0 40px rgba(255, 255, 255, 0.8), 0 0 60px rgba(255, 255, 255, 0.3); }
+        }
+        
+        .subtitle {
+            font-size: 1.5rem;
+            color: #f0f0f0;
+            margin-bottom: 2rem;
+            font-weight: 300;
+        }
+        
+        .message {
+            background: rgba(255, 255, 255, 0.1);
+            backdrop-filter: blur(10px);
+            border-radius: 20px;
+            padding: 2rem;
+            margin: 2rem 0;
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.1);
+        }
+        
+        .message h2 {
+            color: #fff;
+            font-size: 2rem;
+            margin-bottom: 1rem;
+            font-weight: 600;
+        }
+        
+        .message p {
+            color: #e0e0e0;
+            font-size: 1.1rem;
+            line-height: 1.6;
+            margin-bottom: 1rem;
+        }
+        
+        .emoji {
+            font-size: 3rem;
+            margin: 1rem 0;
+            animation: bounce 2s infinite;
+        }
+        
+        @keyframes bounce {
+            0%, 20%, 50%, 80%, 100% { transform: translateY(0); }
+            40% { transform: translateY(-20px); }
+            60% { transform: translateY(-10px); }
+        }
+        
+        .warning {
+            background: rgba(255, 193, 7, 0.2);
+            border: 1px solid rgba(255, 193, 7, 0.3);
+            border-radius: 10px;
+            padding: 1rem;
+            margin: 1rem 0;
+            color: #fff3cd;
+        }
+        
+        .warning strong {
+            color: #ffc107;
+        }
+        
+        .floating-shapes {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            overflow: hidden;
+            z-index: 1;
+        }
+        
+        .shape {
+            position: absolute;
+            background: rgba(255, 255, 255, 0.1);
+            border-radius: 50%;
+            animation: float 6s ease-in-out infinite;
+        }
+        
+        .shape:nth-child(1) {
+            width: 80px;
+            height: 80px;
+            top: 20%;
+            left: 10%;
+            animation-delay: 0s;
+        }
+        
+        .shape:nth-child(2) {
+            width: 120px;
+            height: 120px;
+            top: 60%;
+            right: 10%;
+            animation-delay: 2s;
+        }
+        
+        .shape:nth-child(3) {
+            width: 60px;
+            height: 60px;
+            top: 80%;
+            left: 20%;
+            animation-delay: 4s;
+        }
+        
+        .shape:nth-child(4) {
+            width: 100px;
+            height: 100px;
+            top: 30%;
+            right: 30%;
+            animation-delay: 1s;
+        }
+        
+        @keyframes float {
+            0%, 100% { transform: translateY(0px) rotate(0deg); }
+            50% { transform: translateY(-20px) rotate(180deg); }
+        }
+        
+        .footer {
+            margin-top: 2rem;
+            color: #ccc;
+            font-size: 0.9rem;
+        }
+        
+        .footer a {
+            color: #fff;
+            text-decoration: none;
+            font-weight: 500;
+        }
+        
+        .footer a:hover {
+            text-decoration: underline;
+        }
+        
+        @media (max-width: 768px) {
+            .logo {
+                font-size: 2.5rem;
+            }
+            
+            .subtitle {
+                font-size: 1.2rem;
+            }
+            
+            .message h2 {
+                font-size: 1.5rem;
+            }
+            
+            .message p {
+                font-size: 1rem;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="floating-shapes">
+        <div class="shape"></div>
+        <div class="shape"></div>
+        <div class="shape"></div>
+        <div class="shape"></div>
+    </div>
+    
+    <div class="container">
+        <div class="logo">BrandOutlet</div>
+        <div class="subtitle">Backend Services</div>
+        
+        <div class="message">
+            <h2>🎭 Oops! You found our secret lair!</h2>
+            <p>Well, well, well... look who's being a little too curious! 👀</p>
+            <p>This is our backend API server, not a fancy website. You're probably looking for the <strong>frontend</strong> where all the magic happens!</p>
+            
+            <div class="emoji">🤖</div>
+            
+            <div class="warning">
+                <strong>⚠️ Pro Tip:</strong> If you're not a developer, you might want to head over to our actual website instead of poking around in our server code! 😅
+            </div>
+            
+            <p>But hey, since you're here... want to see some cool API endpoints? Just kidding! 😏</p>
+        </div>
+        
+        <div class="footer">
+            <p>Made with 💜 by the BrandOutlet team</p>
+            <p>Backend running on Node.js • MongoDB • Redis • Lots of coffee ☕</p>
+        </div>
+    </div>
+</body>
+</html>
+  `);
 });
 
 // 404 handler - catch all routes that don't match any defined routes
