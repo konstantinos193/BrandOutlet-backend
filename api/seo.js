@@ -121,7 +121,7 @@ async function handleSingleMetric(req, res) {
       message: error.message
     });
   }
-});
+}
 
 // POST /api/seo/batch-metrics - Track multiple SEO metrics at once
 router.post('/batch-metrics', async (req, res) => {
