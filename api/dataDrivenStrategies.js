@@ -1,5 +1,6 @@
 const express = require('express');
 const { connectDB } = require('../config/database');
+const dataDrivenStrategiesService = require('../services/dataDrivenStrategiesService');
 const router = express.Router();
 
 let db = null;
@@ -136,34 +137,75 @@ initializeSampleData();
 // GET /api/data-driven-strategies - Get all strategy data
 router.get('/', async (req, res) => {
   try {
-    await initializeDB();
-    const { type, priority, impact, limit = 10 } = req.query;
+    const { useRealData = 'true', type, priority, impact, limit = 10 } = req.query;
     
-    const insightsCollection = db.collection('dataDrivenInsights');
-    const marketingCollection = db.collection('marketingStrategies');
-    const inventoryCollection = db.collection('inventoryStrategies');
-    
-    // Build query for insights
-    const insightsQuery = {};
-    if (type) insightsQuery.type = type.toLowerCase();
-    if (priority) insightsQuery.priority = priority.toLowerCase();
-    if (impact) insightsQuery.impact = impact.toLowerCase();
-    
-    const [insights, marketingStrategies, inventoryStrategies] = await Promise.all([
-      insightsCollection.find(insightsQuery).limit(parseInt(limit)).toArray(),
-      marketingCollection.find({}).limit(parseInt(limit)).toArray(),
-      inventoryCollection.find({}).limit(parseInt(limit)).toArray()
-    ]);
-    
-    res.json({
-      success: true,
-      data: {
-        insights: insights,
-        marketingStrategies: marketingStrategies,
-        inventoryStrategies: inventoryStrategies,
-        total: insights.length + marketingStrategies.length + inventoryStrategies.length
+    if (useRealData === 'true') {
+      // Use real data from the service
+      console.log('📊 Fetching real data-driven strategies...');
+      const realData = await dataDrivenStrategiesService.getAllRealStrategies();
+      
+      // Apply filters if provided
+      let filteredInsights = realData.insights;
+      if (type) {
+        filteredInsights = filteredInsights.filter(insight => 
+          insight.type === type.toLowerCase()
+        );
       }
-    });
+      if (priority) {
+        filteredInsights = filteredInsights.filter(insight => 
+          insight.priority === priority.toLowerCase()
+        );
+      }
+      if (impact) {
+        filteredInsights = filteredInsights.filter(insight => 
+          insight.impact === impact.toLowerCase()
+        );
+      }
+      
+      // Apply limit
+      filteredInsights = filteredInsights.slice(0, parseInt(limit));
+      
+      res.json({
+        success: true,
+        data: {
+          insights: filteredInsights,
+          marketingStrategies: realData.marketingStrategies.slice(0, parseInt(limit)),
+          inventoryStrategies: realData.inventoryStrategies.slice(0, parseInt(limit)),
+          total: filteredInsights.length + realData.marketingStrategies.length + realData.inventoryStrategies.length,
+          dataSource: 'real-database-data',
+          lastUpdated: realData.lastUpdated
+        }
+      });
+    } else {
+      // Fallback to sample data
+      await initializeDB();
+      const insightsCollection = db.collection('dataDrivenInsights');
+      const marketingCollection = db.collection('marketingStrategies');
+      const inventoryCollection = db.collection('inventoryStrategies');
+      
+      // Build query for insights
+      const insightsQuery = {};
+      if (type) insightsQuery.type = type.toLowerCase();
+      if (priority) insightsQuery.priority = priority.toLowerCase();
+      if (impact) insightsQuery.impact = impact.toLowerCase();
+      
+      const [insights, marketingStrategies, inventoryStrategies] = await Promise.all([
+        insightsCollection.find(insightsQuery).limit(parseInt(limit)).toArray(),
+        marketingCollection.find({}).limit(parseInt(limit)).toArray(),
+        inventoryCollection.find({}).limit(parseInt(limit)).toArray()
+      ]);
+      
+      res.json({
+        success: true,
+        data: {
+          insights: insights,
+          marketingStrategies: marketingStrategies,
+          inventoryStrategies: inventoryStrategies,
+          total: insights.length + marketingStrategies.length + inventoryStrategies.length,
+          dataSource: 'sample-data'
+        }
+      });
+    }
 
   } catch (error) {
     console.error('Error fetching data-driven strategies:', error);
@@ -178,30 +220,67 @@ router.get('/', async (req, res) => {
 // GET /api/data-driven-strategies/insights - Get insights only
 router.get('/insights', async (req, res) => {
   try {
-    await initializeDB();
-    const { type, priority, impact, limit = 10 } = req.query;
+    const { useRealData = 'true', type, priority, impact, limit = 10 } = req.query;
     
-    const insightsCollection = db.collection('dataDrivenInsights');
-    
-    // Build query
-    const query = {};
-    if (type) query.type = type.toLowerCase();
-    if (priority) query.priority = priority.toLowerCase();
-    if (impact) query.impact = impact.toLowerCase();
-    
-    const insights = await insightsCollection
-      .find(query)
-      .sort({ createdAt: -1 })
-      .limit(parseInt(limit))
-      .toArray();
-    
-    res.json({
-      success: true,
-      data: {
-        insights: insights,
-        total: insights.length
+    if (useRealData === 'true') {
+      // Use real data from the service
+      const insights = await dataDrivenStrategiesService.generateRealInsights();
+      
+      // Apply filters
+      let filteredInsights = insights;
+      if (type) {
+        filteredInsights = filteredInsights.filter(insight => 
+          insight.type === type.toLowerCase()
+        );
       }
-    });
+      if (priority) {
+        filteredInsights = filteredInsights.filter(insight => 
+          insight.priority === priority.toLowerCase()
+        );
+      }
+      if (impact) {
+        filteredInsights = filteredInsights.filter(insight => 
+          insight.impact === impact.toLowerCase()
+        );
+      }
+      
+      // Apply limit
+      filteredInsights = filteredInsights.slice(0, parseInt(limit));
+      
+      res.json({
+        success: true,
+        data: {
+          insights: filteredInsights,
+          total: filteredInsights.length,
+          dataSource: 'real-database-data'
+        }
+      });
+    } else {
+      // Fallback to sample data
+      await initializeDB();
+      const insightsCollection = db.collection('dataDrivenInsights');
+      
+      // Build query
+      const query = {};
+      if (type) query.type = type.toLowerCase();
+      if (priority) query.priority = priority.toLowerCase();
+      if (impact) query.impact = impact.toLowerCase();
+      
+      const insights = await insightsCollection
+        .find(query)
+        .sort({ createdAt: -1 })
+        .limit(parseInt(limit))
+        .toArray();
+      
+      res.json({
+        success: true,
+        data: {
+          insights: insights,
+          total: insights.length,
+          dataSource: 'sample-data'
+        }
+      });
+    }
 
   } catch (error) {
     console.error('Error fetching insights:', error);
@@ -216,28 +295,55 @@ router.get('/insights', async (req, res) => {
 // GET /api/data-driven-strategies/marketing - Get marketing strategies
 router.get('/marketing', async (req, res) => {
   try {
-    await initializeDB();
-    const { status, limit = 10 } = req.query;
+    const { useRealData = 'true', status, limit = 10 } = req.query;
     
-    const marketingCollection = db.collection('marketingStrategies');
-    
-    // Build query
-    const query = {};
-    if (status) query.status = status.toLowerCase();
-    
-    const strategies = await marketingCollection
-      .find(query)
-      .sort({ createdAt: -1 })
-      .limit(parseInt(limit))
-      .toArray();
-    
-    res.json({
-      success: true,
-      data: {
-        strategies: strategies,
-        total: strategies.length
+    if (useRealData === 'true') {
+      // Use real data from the service
+      const strategies = await dataDrivenStrategiesService.generateRealMarketingStrategies();
+      
+      // Apply filters
+      let filteredStrategies = strategies;
+      if (status) {
+        filteredStrategies = filteredStrategies.filter(strategy => 
+          strategy.status === status.toLowerCase()
+        );
       }
-    });
+      
+      // Apply limit
+      filteredStrategies = filteredStrategies.slice(0, parseInt(limit));
+      
+      res.json({
+        success: true,
+        data: {
+          strategies: filteredStrategies,
+          total: filteredStrategies.length,
+          dataSource: 'real-database-data'
+        }
+      });
+    } else {
+      // Fallback to sample data
+      await initializeDB();
+      const marketingCollection = db.collection('marketingStrategies');
+      
+      // Build query
+      const query = {};
+      if (status) query.status = status.toLowerCase();
+      
+      const strategies = await marketingCollection
+        .find(query)
+        .sort({ createdAt: -1 })
+        .limit(parseInt(limit))
+        .toArray();
+      
+      res.json({
+        success: true,
+        data: {
+          strategies: strategies,
+          total: strategies.length,
+          dataSource: 'sample-data'
+        }
+      });
+    }
 
   } catch (error) {
     console.error('Error fetching marketing strategies:', error);
@@ -252,29 +358,61 @@ router.get('/marketing', async (req, res) => {
 // GET /api/data-driven-strategies/inventory - Get inventory strategies
 router.get('/inventory', async (req, res) => {
   try {
-    await initializeDB();
-    const { action, status, limit = 10 } = req.query;
+    const { useRealData = 'true', action, status, limit = 10 } = req.query;
     
-    const inventoryCollection = db.collection('inventoryStrategies');
-    
-    // Build query
-    const query = {};
-    if (action) query.action = action.toLowerCase();
-    if (status) query.status = status.toLowerCase();
-    
-    const strategies = await inventoryCollection
-      .find(query)
-      .sort({ createdAt: -1 })
-      .limit(parseInt(limit))
-      .toArray();
-    
-    res.json({
-      success: true,
-      data: {
-        strategies: strategies,
-        total: strategies.length
+    if (useRealData === 'true') {
+      // Use real data from the service
+      const strategies = await dataDrivenStrategiesService.generateRealInventoryStrategies();
+      
+      // Apply filters
+      let filteredStrategies = strategies;
+      if (action) {
+        filteredStrategies = filteredStrategies.filter(strategy => 
+          strategy.action === action.toLowerCase()
+        );
       }
-    });
+      if (status) {
+        filteredStrategies = filteredStrategies.filter(strategy => 
+          strategy.status === status.toLowerCase()
+        );
+      }
+      
+      // Apply limit
+      filteredStrategies = filteredStrategies.slice(0, parseInt(limit));
+      
+      res.json({
+        success: true,
+        data: {
+          strategies: filteredStrategies,
+          total: filteredStrategies.length,
+          dataSource: 'real-database-data'
+        }
+      });
+    } else {
+      // Fallback to sample data
+      await initializeDB();
+      const inventoryCollection = db.collection('inventoryStrategies');
+      
+      // Build query
+      const query = {};
+      if (action) query.action = action.toLowerCase();
+      if (status) query.status = status.toLowerCase();
+      
+      const strategies = await inventoryCollection
+        .find(query)
+        .sort({ createdAt: -1 })
+        .limit(parseInt(limit))
+        .toArray();
+      
+      res.json({
+        success: true,
+        data: {
+          strategies: strategies,
+          total: strategies.length,
+          dataSource: 'sample-data'
+        }
+      });
+    }
 
   } catch (error) {
     console.error('Error fetching inventory strategies:', error);
