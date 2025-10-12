@@ -379,12 +379,17 @@ function updatePageAnalytics(pageViewData) {
     }
     pageAnalytics.deviceStats[deviceType]++;
 
-    // Track mobile vs desktop
+    // Track mobile vs desktop vs tablet
     if (pageViewData.device.isMobile) {
       if (!pageAnalytics.deviceStats['Mobile']) {
         pageAnalytics.deviceStats['Mobile'] = 0;
       }
       pageAnalytics.deviceStats['Mobile']++;
+    } else if (pageViewData.device.isTablet) {
+      if (!pageAnalytics.deviceStats['Tablet']) {
+        pageAnalytics.deviceStats['Tablet'] = 0;
+      }
+      pageAnalytics.deviceStats['Tablet']++;
     } else if (pageViewData.device.isDesktop) {
       if (!pageAnalytics.deviceStats['Desktop']) {
         pageAnalytics.deviceStats['Desktop'] = 0;
@@ -490,12 +495,15 @@ function calculatePageAnalytics(views) {
 
     // Device stats
     if (view.device) {
+      // Primary device type
       const deviceType = view.device.device || 'Unknown';
       deviceStats[deviceType] = (deviceStats[deviceType] || 0) + 1;
 
-      // Mobile vs Desktop
+      // Mobile vs Desktop vs Tablet
       if (view.device.isMobile) {
         deviceStats['Mobile'] = (deviceStats['Mobile'] || 0) + 1;
+      } else if (view.device.isTablet) {
+        deviceStats['Tablet'] = (deviceStats['Tablet'] || 0) + 1;
       } else if (view.device.isDesktop) {
         deviceStats['Desktop'] = (deviceStats['Desktop'] || 0) + 1;
       }

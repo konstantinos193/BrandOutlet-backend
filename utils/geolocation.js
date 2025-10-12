@@ -79,32 +79,118 @@ function parseUserAgent(userAgent) {
       };
     }
 
-    let ua;
-    try {
-      ua = new UserAgent(userAgent);
-    } catch (error) {
-      console.warn('UserAgent parsing failed, using fallback:', error.message);
-      return {
-        browser: 'Unknown',
-        browserVersion: 'Unknown',
-        os: 'Unknown',
-        osVersion: 'Unknown',
-        device: 'Unknown',
-        isMobile: false,
-        isTablet: false,
-        isDesktop: true
-      };
-    }
+    const ua = userAgent.toLowerCase();
     
+    // Browser detection
+    let browser = 'Unknown';
+    let browserVersion = 'Unknown';
+    
+    if (ua.includes('chrome') && !ua.includes('edg') && !ua.includes('opr')) {
+      browser = 'Chrome';
+      const match = ua.match(/chrome\/(\d+\.\d+)/);
+      browserVersion = match ? match[1] : 'Unknown';
+    } else if (ua.includes('firefox')) {
+      browser = 'Firefox';
+      const match = ua.match(/firefox\/(\d+\.\d+)/);
+      browserVersion = match ? match[1] : 'Unknown';
+    } else if (ua.includes('safari') && !ua.includes('chrome')) {
+      browser = 'Safari';
+      const match = ua.match(/version\/(\d+\.\d+)/);
+      browserVersion = match ? match[1] : 'Unknown';
+    } else if (ua.includes('edg')) {
+      browser = 'Edge';
+      const match = ua.match(/edg\/(\d+\.\d+)/);
+      browserVersion = match ? match[1] : 'Unknown';
+    } else if (ua.includes('opr') || ua.includes('opera')) {
+      browser = 'Opera';
+      const match = ua.match(/(?:opr|opera)\/(\d+\.\d+)/);
+      browserVersion = match ? match[1] : 'Unknown';
+    } else if (ua.includes('msie') || ua.includes('trident')) {
+      browser = 'Internet Explorer';
+      const match = ua.match(/(?:msie |rv:)(\d+\.\d+)/);
+      browserVersion = match ? match[1] : 'Unknown';
+    }
+
+    // OS detection
+    let os = 'Unknown';
+    let osVersion = 'Unknown';
+    
+    if (ua.includes('windows nt')) {
+      os = 'Windows';
+      const match = ua.match(/windows nt (\d+\.\d+)/);
+      if (match) {
+        const version = match[1];
+        switch (version) {
+          case '10.0': osVersion = '10/11'; break;
+          case '6.3': osVersion = '8.1'; break;
+          case '6.2': osVersion = '8'; break;
+          case '6.1': osVersion = '7'; break;
+          case '6.0': osVersion = 'Vista'; break;
+          default: osVersion = version;
+        }
+      }
+    } else if (ua.includes('mac os x') || ua.includes('macos')) {
+      os = 'macOS';
+      const match = ua.match(/mac os x (\d+[._]\d+)/);
+      if (match) {
+        osVersion = match[1].replace('_', '.');
+      }
+    } else if (ua.includes('android')) {
+      os = 'Android';
+      const match = ua.match(/android (\d+\.\d+)/);
+      osVersion = match ? match[1] : 'Unknown';
+    } else if (ua.includes('iphone') || ua.includes('ipad')) {
+      os = 'iOS';
+      const match = ua.match(/os (\d+[._]\d+)/);
+      osVersion = match ? match[1].replace('_', '.') : 'Unknown';
+    } else if (ua.includes('linux')) {
+      os = 'Linux';
+    }
+
+    // Device type detection
+    let device = 'Unknown';
+    let isMobile = false;
+    let isTablet = false;
+    let isDesktop = false;
+
+    if (ua.includes('mobile') || ua.includes('android') || ua.includes('iphone')) {
+      device = 'Mobile';
+      isMobile = true;
+    } else if (ua.includes('ipad') || ua.includes('tablet') || (ua.includes('android') && !ua.includes('mobile'))) {
+      device = 'Tablet';
+      isTablet = true;
+    } else {
+      device = 'Desktop';
+      isDesktop = true;
+    }
+
+    // Additional mobile detection
+    if (ua.includes('mobile') || ua.includes('android') || ua.includes('iphone') || ua.includes('ipod')) {
+      isMobile = true;
+      if (device === 'Unknown') device = 'Mobile';
+    }
+
+    // Additional tablet detection
+    if (ua.includes('ipad') || (ua.includes('android') && !ua.includes('mobile')) || ua.includes('tablet')) {
+      isTablet = true;
+      if (device === 'Unknown') device = 'Tablet';
+    }
+
+    // Default to desktop if nothing else matches
+    if (!isMobile && !isTablet) {
+      isDesktop = true;
+      if (device === 'Unknown') device = 'Desktop';
+    }
+
     return {
-      browser: (ua.browser && ua.browser.name) || 'Unknown',
-      browserVersion: (ua.browser && ua.browser.version) || 'Unknown',
-      os: (ua.os && ua.os.name) || 'Unknown',
-      osVersion: (ua.os && ua.os.version) || 'Unknown',
-      device: (ua.device && ua.device.type) || 'Unknown',
-      isMobile: ua.isMobile || false,
-      isTablet: ua.isTablet || false,
-      isDesktop: ua.isDesktop || false
+      browser,
+      browserVersion,
+      os,
+      osVersion,
+      device,
+      isMobile,
+      isTablet,
+      isDesktop
     };
   } catch (error) {
     console.error('Error parsing user agent:', error);
@@ -116,8 +202,7 @@ function parseUserAgent(userAgent) {
       device: 'Unknown',
       isMobile: false,
       isTablet: false,
-      isDesktop: false,
-      error: error.message
+      isDesktop: true
     };
   }
 }
