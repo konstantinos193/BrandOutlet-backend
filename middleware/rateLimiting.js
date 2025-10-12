@@ -10,15 +10,6 @@ const createRateLimit = (windowMs, max, message, skipSuccessfulRequests = false)
     legacyHeaders: false,
     trustProxy: true,
     skipSuccessfulRequests,
-    // Custom key generator to differentiate between authenticated and unauthenticated users
-    keyGenerator: (req) => {
-      // If user is authenticated, use their user ID for rate limiting
-      if (req.user && req.user.id) {
-        return `auth:${req.user.id}`;
-      }
-      // Otherwise use IP address with proper IPv6 handling
-      return req.ip || req.connection.remoteAddress || req.socket.remoteAddress || 'unknown';
-    },
     // Custom handler for rate limit exceeded
     handler: (req, res) => {
       const isAuthenticated = req.user && req.user.id;

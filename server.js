@@ -175,9 +175,8 @@ app.use(htmlResponse);
 app.use('/api/test-html', require('./api/test-html'));
 
 // HTML view route for any API endpoint
-app.get('/api-view/:endpoint(.*)', (req, res) => {
-  const endpoint = req.params.endpoint;
-  const fullPath = endpoint.startsWith('/') ? endpoint : `/${endpoint}`;
+app.get('/api-view/*', (req, res) => {
+  const fullPath = req.params[0] || '';
   const apiUrl = `/api${fullPath}`;
   
   console.log('🔍 HTML View requested for:', apiUrl);
