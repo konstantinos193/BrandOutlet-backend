@@ -27,8 +27,30 @@ const seoMetricSchema = Joi.object({
   additionalData: Joi.object().optional()
 });
 
-// POST /api/seo/metrics - Track SEO metrics
+// POST /api/seo/metrics - Track SEO metrics (single or batch)
 router.post('/metrics', async (req, res) => {
+  try {
+    console.log('📊 SEO metrics tracking request received');
+    
+    // Check if this is a batch request
+    if (req.body.metrics && Array.isArray(req.body.metrics)) {
+      return handleBatchMetrics(req, res);
+    }
+    
+    // Handle single metric
+    return handleSingleMetric(req, res);
+  } catch (error) {
+    console.error('Error in SEO metrics endpoint:', error);
+    res.status(500).json({
+      success: false,
+      error: 'Failed to process SEO metrics',
+      message: error.message
+    });
+  }
+});
+
+// Handle single metric
+async function handleSingleMetric(req, res) {
   try {
     console.log('📊 SEO metrics tracking request received');
     
@@ -556,6 +578,90 @@ function getTimeFilter(timeframe) {
     case '7d': return new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
     case '30d': return new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000);
     default: return null;
+  }
+}
+
+// Handle batch metrics
+async function handleBatchMetrics(req, res) {
+  try {
+    const { metrics } = req.body;
+    
+    if (!Array.isArray(metrics) || metrics.length === 0) {
+      return res.status(400).json({
+        success: false,
+        error: 'Metrics array is required and must not be empty'
+      });
+    }
+
+    console.log(`📊 Processing batch of ${metrics.length} SEO metrics`);
+
+    // Get tracking data once for the batch
+    let trackingData;
+    try {
+      trackingData = getTrackingData(req);
+    } catch (trackingError) {
+      console.error('Error getting tracking data:', trackingError);
+      trackingData = {
+        ip: req.ip || '127.0.0.1',
+        location: { country: 'Unknown', region: 'Unknown', city: 'Unknown' },
+        device: { browser: 'Unknown', os: 'Unknown', isMobile: false }
+      };
+    }
+
+    // Process each metric
+    const processedMetrics = [];
+    const database = await initializeDB();
+    const seoCollection = database.collection('seoMetrics');
+
+    for (const metric of metrics) {
+      try {
+        // Validate each metric
+        const { error, value } = seoMetricSchema.validate(metric);
+        if (error) {
+          console.warn('Skipping invalid metric:', error.details[0].message);
+          continue;
+        }
+
+        // Add tracking data
+        const seoMetricData = {
+          id: uuidv4(),
+          ...value,
+          timestamp: new Date(),
+          ipAddress: trackingData.ip,
+          userAgent: req.get('User-Agent'),
+          location: trackingData.location,
+          device: trackingData.device
+        };
+
+        processedMetrics.push(seoMetricData);
+      } catch (metricError) {
+        console.warn('Error processing metric:', metricError);
+        continue;
+      }
+    }
+
+    // Insert all valid metrics
+    if (processedMetrics.length > 0) {
+      await seoCollection.insertMany(processedMetrics);
+      console.log(`✅ Successfully stored ${processedMetrics.length} SEO metrics`);
+    }
+
+    res.status(201).json({
+      success: true,
+      message: `Successfully processed ${processedMetrics.length} SEO metrics`,
+      data: {
+        processed: processedMetrics.length,
+        total: metrics.length
+      }
+    });
+
+  } catch (error) {
+    console.error('Error processing batch SEO metrics:', error);
+    res.status(500).json({
+      success: false,
+      error: 'Failed to process batch SEO metrics',
+      message: error.message
+    });
   }
 }
 

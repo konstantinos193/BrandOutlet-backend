@@ -485,6 +485,7 @@ class SEOService {
       default: return null;
     }
   }
+
 }
 
 module.exports = new SEOService();

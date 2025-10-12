@@ -8,15 +8,15 @@ const UserAgent = require('user-agents');
  */
 function getLocationFromIP(ip) {
   try {
-    // Handle localhost and private IPs
+    // Handle localhost and private IPs - provide sample data for development
     if (isLocalOrPrivateIP(ip)) {
       return {
-        country: 'Unknown',
-        region: 'Unknown',
-        city: 'Unknown',
-        timezone: 'Unknown',
-        latitude: null,
-        longitude: null,
+        country: 'Greece',
+        region: 'Crete',
+        city: 'Arkalochori',
+        timezone: 'Europe/Athens',
+        latitude: 35.1333,
+        longitude: 25.2667,
         isLocal: true
       };
     }
