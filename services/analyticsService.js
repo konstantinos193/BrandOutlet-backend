@@ -282,6 +282,16 @@ class AnalyticsService {
       salesByCategory[item._id] = item.count;
     });
 
+    console.log('📊 Sales metrics calculated:', {
+      totalSales,
+      totalRevenue: Math.round(totalRevenue * 100) / 100,
+      averageOrderValue: Math.round(averageOrderValue * 100) / 100,
+      revenueThisMonth: Math.round(revenueThisMonth * 100) / 100,
+      revenueLastMonth: Math.round(revenueLastMonth * 100) / 100,
+      revenueGrowth: Math.round(revenueGrowth * 100) / 100,
+      ordersCount: totalSales
+    });
+
     return {
       totalSales,
       totalRevenue: Math.round(totalRevenue * 100) / 100,
@@ -346,10 +356,49 @@ class AnalyticsService {
       ? (bounceSessions / sessionDurationResult.length) * 100 
       : 0;
     
-    // Mock data for metrics that would need more complex tracking
-    const cartAbandonmentRate = 68.5; // Would need cart tracking
-    const checkoutCompletionRate = 31.5; // Would need checkout flow tracking
-    const returnVisitorRate = 35.7; // Would need user identification
+    // Calculate return visitor rate from actual data
+    const returnVisitorSessions = await pageTrackingCollection.aggregate([
+      {
+        $group: {
+          _id: '$sessionId',
+          visitCount: { $sum: 1 },
+          firstVisit: { $min: '$timestamp' },
+          lastVisit: { $max: '$timestamp' }
+        }
+      },
+      {
+        $match: {
+          $expr: {
+            $gt: [
+              { $divide: [{ $subtract: ['$lastVisit', '$firstVisit'] }, 1000 * 60 * 60 * 24] },
+              1 // More than 1 day between first and last visit
+            ]
+          }
+        }
+      }
+    ]).toArray();
+    
+    const returnVisitorRate = sessionDurationResult.length > 0 
+      ? (returnVisitorSessions.length / sessionDurationResult.length) * 100 
+      : 0;
+
+    console.log('📊 Conversion metrics calculated:', {
+      totalPageViews,
+      uniqueSessions: uniqueSessions.length,
+      returnVisitorSessions: returnVisitorSessions.length,
+      returnVisitorRate: Math.round(returnVisitorRate * 100) / 100,
+      averageSessionDuration: Math.round(averageSessionDuration * 100) / 100,
+      pagesPerSession: Math.round(pagesPerSession * 100) / 100,
+      bounceRate: Math.round(bounceRate * 100) / 100
+    });
+
+    // Calculate cart abandonment and checkout completion from orders data
+    const totalCarts = await ordersCollection.countDocuments(); // Total cart attempts
+    const completedCarts = await ordersCollection.countDocuments({ paymentStatus: 'completed' });
+    const abandonedCarts = totalCarts - completedCarts;
+    
+    const cartAbandonmentRate = totalCarts > 0 ? (abandonedCarts / totalCarts) * 100 : 0;
+    const checkoutCompletionRate = totalCarts > 0 ? (completedCarts / totalCarts) * 100 : 0;
 
     return {
       conversionRate: Math.round(conversionRate * 100) / 100,
@@ -358,7 +407,7 @@ class AnalyticsService {
       averageSessionDuration: Math.round(averageSessionDuration * 100) / 100,
       pagesPerSession: Math.round(pagesPerSession * 100) / 100,
       bounceRate: Math.round(bounceRate * 100) / 100,
-      returnVisitorRate,
+      returnVisitorRate: Math.round(returnVisitorRate * 100) / 100,
       totalPageViews,
       uniqueSessions: uniqueSessions.length
     };
@@ -390,13 +439,21 @@ class AnalyticsService {
       ]).toArray()
     ]);
 
+    console.log('📊 Real-time metrics calculated:', {
+      pageViewsLastHour,
+      pageViewsLast24Hours,
+      activeUsersLastHour: activeUsersLastHour.length,
+      activeUsersLast24Hours: activeUsersLast24Hours.length,
+      peakHourlyTraffic: pageViewsLastHour
+    });
+
     return {
       pageViewsLastHour,
       pageViewsLast24Hours,
       activeUsersLastHour: activeUsersLastHour.length,
       activeUsersLast24Hours: activeUsersLast24Hours.length,
       currentOnlineUsers: activeUsersLastHour.length,
-      peakHourlyTraffic: Math.max(pageViewsLastHour, 15), // Mock peak
+      peakHourlyTraffic: pageViewsLastHour, // Real peak traffic
       systemUptime: process.uptime(),
       lastUpdated: now
     };

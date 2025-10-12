@@ -28,23 +28,34 @@ class RealTimeService {
       const oneHourAgo = new Date(now.getTime() - 60 * 60 * 1000);
       const oneDayAgo = new Date(now.getTime() - 24 * 60 * 60 * 1000);
       
-      // Generate mock real-time data
+      // Get real data from database
+      const pageViewsCollection = this.db.collection('pageViews');
+      const ordersCollection = this.db.collection('orders');
+      const productsCollection = this.db.collection('products');
+      
+      // Get real page view data
+      const [currentUsers, activeSessions, pageViews] = await Promise.all([
+        pageViewsCollection.distinct('sessionId', { timestamp: { $gte: oneHourAgo } }).then(sessions => sessions.length),
+        pageViewsCollection.distinct('sessionId', { timestamp: { $gte: oneHourAgo } }).then(sessions => sessions.length),
+        pageViewsCollection.countDocuments({ timestamp: { $gte: oneDayAgo } })
+      ]);
+      
       const metrics = {
-        // Current session metrics
-        currentUsers: Math.floor(Math.random() * 500) + 100,
-        activeSessions: Math.floor(Math.random() * 200) + 50,
-        pageViews: Math.floor(Math.random() * 1000) + 500,
+        // Current session metrics - REAL DATA
+        currentUsers,
+        activeSessions,
+        pageViews,
         
-        // Revenue metrics
-        todayRevenue: Math.floor(Math.random() * 50000) + 10000,
-        hourlyRevenue: Math.floor(Math.random() * 5000) + 1000,
-        conversionRate: (Math.random() * 5 + 2).toFixed(2),
-        avgOrderValue: Math.floor(Math.random() * 200) + 100,
+        // Revenue metrics - REAL DATA
+        todayRevenue: 0, // Will be calculated from orders
+        hourlyRevenue: 0, // Will be calculated from orders
+        conversionRate: 0, // Will be calculated from page views vs orders
+        avgOrderValue: 0, // Will be calculated from orders
         
-        // Product metrics
-        totalProducts: Math.floor(Math.random() * 10000) + 5000,
-        lowStockProducts: Math.floor(Math.random() * 50) + 10,
-        outOfStockProducts: Math.floor(Math.random() * 20) + 5,
+        // Product metrics - REAL DATA
+        totalProducts: 0, // Will be calculated from products collection
+        lowStockProducts: 0, // Will be calculated from products collection
+        outOfStockProducts: 0, // Will be calculated from products collection
         
         // User metrics
         newUsersToday: Math.floor(Math.random() * 100) + 20,
@@ -56,14 +67,8 @@ class RealTimeService {
         bounceRate: (Math.random() * 20 + 30).toFixed(1),
         sessionDuration: Math.floor(Math.random() * 300) + 120,
         
-        // Geographic data
-        topCountries: [
-          { country: 'United States', users: Math.floor(Math.random() * 1000) + 500, revenue: Math.floor(Math.random() * 20000) + 10000 },
-          { country: 'United Kingdom', users: Math.floor(Math.random() * 500) + 200, revenue: Math.floor(Math.random() * 10000) + 5000 },
-          { country: 'Canada', users: Math.floor(Math.random() * 300) + 100, revenue: Math.floor(Math.random() * 8000) + 3000 },
-          { country: 'Germany', users: Math.floor(Math.random() * 400) + 150, revenue: Math.floor(Math.random() * 12000) + 4000 },
-          { country: 'France', users: Math.floor(Math.random() * 350) + 120, revenue: Math.floor(Math.random() * 10000) + 3500 }
-        ],
+        // Geographic data - REAL DATA
+        topCountries: [], // Will be calculated from page views location data
         
         // Device breakdown
         deviceBreakdown: [
@@ -91,6 +96,132 @@ class RealTimeService {
         
         lastUpdated: now.toISOString()
       };
+      
+      // Calculate real data from database
+      try {
+        // Get real product data
+        const [totalProducts, lowStockProducts, outOfStockProducts] = await Promise.all([
+          productsCollection.countDocuments(),
+          productsCollection.countDocuments({ stock: { $lt: 10, $gt: 0 } }),
+          productsCollection.countDocuments({ stock: { $lte: 0 } })
+        ]);
+        
+        metrics.totalProducts = totalProducts;
+        metrics.lowStockProducts = lowStockProducts;
+        metrics.outOfStockProducts = outOfStockProducts;
+        
+        // Get real revenue data
+        const todayOrders = await ordersCollection.find({
+          createdAt: { $gte: oneDayAgo },
+          paymentStatus: 'completed'
+        }).toArray();
+        
+        const todayRevenue = todayOrders.reduce((sum, order) => sum + (order.totalAmount || 0), 0);
+        const hourlyOrders = await ordersCollection.find({
+          createdAt: { $gte: oneHourAgo },
+          paymentStatus: 'completed'
+        }).toArray();
+        
+        const hourlyRevenue = hourlyOrders.reduce((sum, order) => sum + (order.totalAmount || 0), 0);
+        const avgOrderValue = todayOrders.length > 0 ? todayRevenue / todayOrders.length : 0;
+        
+        metrics.todayRevenue = Math.round(todayRevenue * 100) / 100;
+        metrics.hourlyRevenue = Math.round(hourlyRevenue * 100) / 100;
+        metrics.avgOrderValue = Math.round(avgOrderValue * 100) / 100;
+        
+        // Calculate conversion rate
+        const uniqueSessions = await pageViewsCollection.distinct('sessionId', { timestamp: { $gte: oneDayAgo } });
+        metrics.conversionRate = uniqueSessions.length > 0 ? (todayOrders.length / uniqueSessions.length * 100).toFixed(2) : '0.00';
+        
+        // Get real user metrics
+        const newUsersToday = await pageViewsCollection.distinct('sessionId', { 
+          timestamp: { $gte: oneDayAgo },
+          'location.isLocal': false // Exclude local development traffic
+        }).then(sessions => sessions.length);
+        
+        metrics.newUsersToday = newUsersToday;
+        
+        // Get real performance metrics from page views
+        const sessionData = await pageViewsCollection.aggregate([
+          { $match: { timestamp: { $gte: oneDayAgo } } },
+          {
+            $group: {
+              _id: '$sessionId',
+              pageCount: { $sum: 1 },
+              firstView: { $min: '$timestamp' },
+              lastView: { $max: '$timestamp' }
+            }
+          }
+        ]).toArray();
+        
+        const avgSessionDuration = sessionData.length > 0 
+          ? sessionData.reduce((sum, session) => sum + (session.lastView - session.firstView), 0) / sessionData.length / (1000 * 60) // Convert to minutes
+          : 0;
+        
+        const bounceSessions = sessionData.filter(session => session.pageCount === 1).length;
+        const bounceRate = sessionData.length > 0 ? (bounceSessions / sessionData.length * 100).toFixed(1) : '0.0';
+        
+        metrics.sessionDuration = Math.round(avgSessionDuration);
+        metrics.bounceRate = bounceRate;
+        
+        // Get real geographic data
+        const countryData = await pageViewsCollection.aggregate([
+          { $match: { timestamp: { $gte: oneDayAgo }, 'location.country': { $exists: true } } },
+          {
+            $group: {
+              _id: '$location.country',
+              users: { $addToSet: '$sessionId' },
+              pageViews: { $sum: 1 }
+            }
+          },
+          {
+            $project: {
+              country: '$_id',
+              users: { $size: '$users' },
+              pageViews: 1
+            }
+          },
+          { $sort: { users: -1 } },
+          { $limit: 5 }
+        ]).toArray();
+        
+        metrics.topCountries = countryData.map(country => ({
+          country: country.country,
+          users: country.users,
+          revenue: 0 // Would need order data with country info
+        }));
+        
+        // Get real device data
+        const deviceData = await pageViewsCollection.aggregate([
+          { $match: { timestamp: { $gte: oneDayAgo }, 'device.device': { $exists: true } } },
+          {
+            $group: {
+              _id: '$device.device',
+              count: { $sum: 1 },
+              uniqueUsers: { $addToSet: '$sessionId' }
+            }
+          },
+          {
+            $project: {
+              device: '$_id',
+              users: { $size: '$uniqueUsers' },
+              pageViews: '$count'
+            }
+          },
+          { $sort: { users: -1 } }
+        ]).toArray();
+        
+        const totalDeviceUsers = deviceData.reduce((sum, device) => sum + device.users, 0);
+        metrics.deviceBreakdown = deviceData.map(device => ({
+          device: device.device,
+          percentage: totalDeviceUsers > 0 ? Math.round((device.users / totalDeviceUsers) * 100) : 0,
+          users: device.users
+        }));
+        
+      } catch (error) {
+        console.error('Error calculating real-time metrics:', error);
+        // Keep the basic real data we already calculated
+      }
       
       return metrics;
     }, 30000); // 30 second cache for real-time data

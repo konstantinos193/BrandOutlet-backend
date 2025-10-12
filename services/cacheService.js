@@ -9,10 +9,10 @@ class CacheService {
   constructor() {
     this.defaultTTL = {
       products: 300,        // 5 minutes
-      analytics: 60,        // 1 minute (reduced for real-time data)
+      analytics: 10,        // 10 seconds (very short for testing)
       search: 300,          // 5 minutes
       userPreferences: 1800, // 30 minutes
-      admin: 30,            // 30 seconds (reduced for real-time admin data)
+      admin: 5,             // 5 seconds (very short for testing)
       facets: 3600,         // 1 hour
     };
   }
