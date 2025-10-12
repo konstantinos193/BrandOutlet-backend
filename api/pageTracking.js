@@ -537,6 +537,109 @@ function calculatePageAnalytics(views) {
     .slice(0, 10)
     .map(([browser, count]) => ({ browser, count, percentage: ((count / views.length) * 100).toFixed(1) }));
 
+  // Geographic data for map visualization
+  const geographicData = views
+    .filter(view => view.location && view.location.latitude && view.location.longitude)
+    .map(view => ({
+      id: view.id,
+      city: view.location.city,
+      country: view.location.country,
+      region: view.location.region,
+      latitude: view.location.latitude,
+      longitude: view.location.longitude,
+      page: view.page,
+      path: view.path,
+      views: 1,
+      timestamp: view.timestamp,
+      device: view.device?.device || 'Unknown',
+      browser: view.device?.browser || 'Unknown'
+    }));
+
+  // Aggregate geographic data by location
+  const aggregatedGeographicData = {};
+  geographicData.forEach(point => {
+    const key = `${point.latitude},${point.longitude}`;
+    if (!aggregatedGeographicData[key]) {
+      aggregatedGeographicData[key] = {
+        id: point.id,
+        city: point.city,
+        country: point.country,
+        region: point.region,
+        latitude: point.latitude,
+        longitude: point.longitude,
+        totalViews: 0,
+        pages: new Set(),
+        devices: new Set(),
+        browsers: new Set(),
+        lastVisit: point.timestamp
+      };
+    }
+    aggregatedGeographicData[key].totalViews += point.views;
+    aggregatedGeographicData[key].pages.add(point.page);
+    aggregatedGeographicData[key].devices.add(point.device);
+    aggregatedGeographicData[key].browsers.add(point.browser);
+    if (new Date(point.timestamp) > new Date(aggregatedGeographicData[key].lastVisit)) {
+      aggregatedGeographicData[key].lastVisit = point.timestamp;
+    }
+  });
+
+  // Convert to array and format for frontend
+  const mapData = Object.values(aggregatedGeographicData).map(point => ({
+    ...point,
+    pages: Array.from(point.pages),
+    devices: Array.from(point.devices),
+    browsers: Array.from(point.browsers),
+    pagesCount: point.pages.size,
+    devicesCount: point.devices.size,
+    browsersCount: point.browsers.size
+  }));
+
+  // Page view mapping - detailed page analytics
+  const pageViewMapping = {};
+  views.forEach(view => {
+    const page = view.page;
+    if (!pageViewMapping[page]) {
+      pageViewMapping[page] = {
+        page,
+        path: view.path,
+        totalViews: 0,
+        uniqueVisitors: new Set(),
+        countries: new Set(),
+        cities: new Set(),
+        devices: new Set(),
+        browsers: new Set(),
+        avgDuration: 0,
+        durations: [],
+        timestamps: []
+      };
+    }
+    
+    pageViewMapping[page].totalViews++;
+    pageViewMapping[page].uniqueVisitors.add(view.sessionId);
+    if (view.location?.country) pageViewMapping[page].countries.add(view.location.country);
+    if (view.location?.city) pageViewMapping[page].cities.add(view.location.city);
+    if (view.device?.device) pageViewMapping[page].devices.add(view.device.device);
+    if (view.device?.browser) pageViewMapping[page].browsers.add(view.device.browser);
+    if (view.duration) pageViewMapping[page].durations.push(view.duration);
+    pageViewMapping[page].timestamps.push(view.timestamp);
+  });
+
+  // Calculate averages and convert sets to arrays
+  Object.values(pageViewMapping).forEach(page => {
+    page.uniqueVisitors = page.uniqueVisitors.size;
+    page.countries = Array.from(page.countries);
+    page.cities = Array.from(page.cities);
+    page.devices = Array.from(page.devices);
+    page.browsers = Array.from(page.browsers);
+    page.avgDuration = page.durations.length > 0 
+      ? Math.round(page.durations.reduce((a, b) => a + b, 0) / page.durations.length)
+      : 0;
+    page.countriesCount = page.countries.length;
+    page.citiesCount = page.cities.length;
+    page.devicesCount = page.devices.length;
+    page.browsersCount = page.browsers.length;
+  });
+
   return {
     pageStats,
     popularPages: popularPages.slice(0, 10),
@@ -553,7 +656,10 @@ function calculatePageAnalytics(views) {
       topBrowsers,
       totalCountries: Object.keys(countryStats).length,
       totalCities: Object.keys(cityStats).length
-    }
+    },
+    // New data for maps and detailed analytics
+    mapData: mapData.sort((a, b) => b.totalViews - a.totalViews),
+    pageViewMapping: Object.values(pageViewMapping).sort((a, b) => b.totalViews - a.totalViews)
   };
 }
 
