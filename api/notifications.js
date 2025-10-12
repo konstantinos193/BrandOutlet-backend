@@ -10,6 +10,7 @@ const initializeDB = async () => {
   if (!db) {
     db = await connectDB();
   }
+  return db;
 };
 
 // Sample notifications data (in production, this would come from database)
@@ -92,8 +93,8 @@ const sampleNotifications = [
 // Initialize sample data in database
 const initializeSampleData = async () => {
   try {
-    await initializeDB();
-    const notificationsCollection = db.collection('notifications');
+    const database = await initializeDB();
+    const notificationsCollection = database.collection('notifications');
     
     // Check if notifications already exist
     const existingCount = await notificationsCollection.countDocuments();
@@ -160,8 +161,8 @@ router.get('/', async (req, res) => {
 // GET /api/notifications/unread-count - Get unread count
 router.get('/unread-count', async (req, res) => {
   try {
-    await initializeDB();
-    const notificationsCollection = db.collection('notifications');
+    const database = await initializeDB();
+    const notificationsCollection = database.collection('notifications');
     const unreadCount = await notificationsCollection.countDocuments({ unread: true });
     
     res.json({
@@ -218,8 +219,8 @@ router.put('/:id/read', async (req, res) => {
 // PUT /api/notifications/read-all - Mark all notifications as read
 router.put('/read-all', async (req, res) => {
   try {
-    await initializeDB();
-    const notificationsCollection = db.collection('notifications');
+    const database = await initializeDB();
+    const notificationsCollection = database.collection('notifications');
     
     const result = await notificationsCollection.updateMany(
       { unread: true },
@@ -319,8 +320,8 @@ router.post('/', async (req, res) => {
 // GET /api/notifications/stats - Get notification statistics
 router.get('/stats', async (req, res) => {
   try {
-    await initializeDB();
-    const notificationsCollection = db.collection('notifications');
+    const database = await initializeDB();
+    const notificationsCollection = database.collection('notifications');
     
     const [total, unread, byType] = await Promise.all([
       notificationsCollection.countDocuments(),

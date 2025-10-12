@@ -221,6 +221,7 @@ const initializeDB = async () => {
   if (!db) {
     db = await connectDB();
   }
+  return db;
 };
 
 // POST /api/analytics/track - Track analytics events
@@ -247,8 +248,8 @@ router.post('/track', async (req, res) => {
     };
 
     // Store event in MongoDB
-    await initializeDB();
-    const analyticsCollection = db.collection('analyticsEvents');
+    const database = await initializeDB();
+    const analyticsCollection = database.collection('analyticsEvents');
     await analyticsCollection.insertOne(trackedEvent);
 
     console.log(`📊 Analytics event tracked: ${event.eventName}`);
@@ -292,8 +293,8 @@ router.post('/performance', async (req, res) => {
     };
 
     // Store performance metrics in MongoDB
-    await initializeDB();
-    const analyticsCollection = db.collection('analyticsEvents');
+    const database = await initializeDB();
+    const analyticsCollection = database.collection('analyticsEvents');
     await analyticsCollection.insertOne({
       eventName: 'performance_metrics',
       eventData: performanceEvent,
@@ -342,8 +343,8 @@ router.post('/performance-alert', async (req, res) => {
     };
 
     // Store performance alert in MongoDB
-    await initializeDB();
-    const analyticsCollection = db.collection('analyticsEvents');
+    const database = await initializeDB();
+    const analyticsCollection = database.collection('analyticsEvents');
     await analyticsCollection.insertOne({
       eventName: 'performance_alert',
       eventData: alertEvent,

@@ -14,6 +14,7 @@ const initializeDB = async () => {
   if (!db) {
     db = await connectDB();
   }
+  return db;
 };
 
 // Validation schemas
@@ -70,8 +71,8 @@ router.post('/', async (req, res) => {
     };
 
     // Store the preference in MongoDB
-    await initializeDB();
-    const preferencesCollection = db.collection('userPreferences');
+    const database = await initializeDB();
+    const preferencesCollection = database.collection('userPreferences');
     await preferencesCollection.insertOne(preferenceData);
 
     // Analytics will be calculated on-demand from database
@@ -141,8 +142,8 @@ router.get('/', async (req, res) => {
 // GET /api/user-preferences/analytics - Get analytics data
 router.get('/analytics', async (req, res) => {
   try {
-    await initializeDB();
-    const preferencesCollection = db.collection('userPreferences');
+    const database = await initializeDB();
+    const preferencesCollection = database.collection('userPreferences');
     
     // Calculate analytics from database
     const [totalUsers, genderStats, clothingSizeStats, shoeSizeStats] = await Promise.all([

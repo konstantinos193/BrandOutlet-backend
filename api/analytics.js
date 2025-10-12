@@ -9,16 +9,17 @@ const initializeDB = async () => {
   if (!db) {
     db = await connectDB();
   }
+  return db;
 };
 
 // GET /api/analytics/overview - Get analytics overview
 router.get('/overview', async (req, res) => {
   try {
-    await initializeDB();
+    const database = await initializeDB();
     const { timeframe = '7d' } = req.query;
     
     // Get data from userPreferences collection
-    const preferencesCollection = db.collection('userPreferences');
+    const preferencesCollection = database.collection('userPreferences');
     
     const [totalUsers, genderStats, clothingSizeStats, shoeSizeStats] = await Promise.all([
       preferencesCollection.countDocuments(),
@@ -81,11 +82,11 @@ router.get('/overview', async (req, res) => {
 // GET /api/analytics/trends - Get analytics trends
 router.get('/trends', async (req, res) => {
   try {
-    await initializeDB();
+    const database = await initializeDB();
     const { timeframe = '7d' } = req.query;
     
     // Get trends data from userPreferences collection
-    const preferencesCollection = db.collection('userPreferences');
+    const preferencesCollection = database.collection('userPreferences');
     
     // Get recent preferences for trend analysis
     const recentPreferences = await preferencesCollection
@@ -117,10 +118,10 @@ router.get('/trends', async (req, res) => {
 // GET /api/analytics/insights - Get marketing insights
 router.get('/insights', async (req, res) => {
   try {
-    await initializeDB();
+    const database = await initializeDB();
     
     // Get data from userPreferences collection
-    const preferencesCollection = db.collection('userPreferences');
+    const preferencesCollection = database.collection('userPreferences');
     
     const [genderStats, clothingSizeStats, shoeSizeStats] = await Promise.all([
       preferencesCollection.aggregate([

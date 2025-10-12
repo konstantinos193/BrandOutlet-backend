@@ -12,13 +12,14 @@ const initializeDB = async () => {
   if (!db) {
     db = await connectDB();
   }
+  return db;
 };
 
 // Health check endpoint for page tracking
 router.get('/health', async (req, res) => {
   try {
-    await initializeDB();
-    const pageViewsCollection = db.collection('pageViews');
+    const database = await initializeDB();
+    const pageViewsCollection = database.collection('pageViews');
     const totalViews = await pageViewsCollection.countDocuments();
     const uniqueVisitors = await pageViewsCollection.distinct('sessionId').then(sessions => sessions.length);
     
@@ -114,8 +115,8 @@ router.post('/view', async (req, res) => {
     };
 
     // Store the page view in MongoDB
-    await initializeDB();
-    const pageViewsCollection = db.collection('pageViews');
+    const database = await initializeDB();
+    const pageViewsCollection = database.collection('pageViews');
     await pageViewsCollection.insertOne(pageViewData);
 
     // Analytics will be calculated on-demand from database
@@ -158,8 +159,8 @@ router.post('/exit', async (req, res) => {
     const trackingSessionId = sessionId || 'anonymous-' + Date.now();
 
     // Find the last page view for this session and update it in MongoDB
-    await initializeDB();
-    const pageViewsCollection = db.collection('pageViews');
+    const database = await initializeDB();
+    const pageViewsCollection = database.collection('pageViews');
     
     const lastView = await pageViewsCollection
       .findOne(
