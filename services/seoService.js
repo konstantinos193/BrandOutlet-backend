@@ -198,6 +198,46 @@ class SEOService {
 
     const recommendations = [];
 
+    // Check if we have any data
+    const hasData = Object.keys(coreWebVitals).some(metric => 
+      coreWebVitals[metric].values.length > 0
+    ) || pagePerformance.loadTimes.length > 0 || engagement.pageViews > 0;
+
+    if (!hasData) {
+      // Provide helpful recommendations when no data is available
+      recommendations.push({
+        type: 'performance',
+        metric: 'data_collection',
+        priority: 'high',
+        title: 'Start Collecting SEO Data',
+        description: 'Visit your website pages to begin collecting real performance metrics and user engagement data.',
+        action: 'Navigate to different pages on your site, especially product pages, to generate Core Web Vitals and performance data.',
+        impact: 'Will enable comprehensive SEO analytics and performance monitoring'
+      });
+
+      recommendations.push({
+        type: 'engagement',
+        metric: 'user_interaction',
+        priority: 'medium',
+        title: 'Test User Interactions',
+        description: 'Interact with your website to generate engagement metrics.',
+        action: 'Click internal links, use search functionality, and navigate between pages to collect user behavior data.',
+        impact: 'Will provide insights into user engagement and site usability'
+      });
+
+      recommendations.push({
+        type: 'content',
+        metric: 'page_optimization',
+        priority: 'low',
+        title: 'Optimize for Performance',
+        description: 'While collecting data, ensure your pages are optimized for performance.',
+        action: 'Optimize images, minimize CSS/JS, and ensure fast loading times to improve Core Web Vitals scores.',
+        impact: 'Will improve user experience and search engine rankings'
+      });
+
+      return recommendations;
+    }
+
     // Core Web Vitals recommendations
     Object.keys(coreWebVitals).forEach(metric => {
       const data = coreWebVitals[metric];
@@ -367,6 +407,43 @@ class SEOService {
   // Helper function to generate SEO insights
   generateSEOInsights(analytics) {
     const insights = [];
+
+    // Check if we have any data
+    const hasData = Object.keys(analytics.coreWebVitals).some(metric => 
+      analytics.coreWebVitals[metric].values.length > 0
+    ) || analytics.pagePerformance.loadTimes.length > 0 || analytics.seoEvents.pageViews > 0;
+
+    if (!hasData) {
+      // Provide helpful insights when no data is available
+      insights.push({
+        type: 'info',
+        metric: 'data_collection',
+        message: 'No SEO data available yet. Visit some pages on your site to start collecting performance metrics.',
+        priority: 'low',
+        value: 0,
+        threshold: 1
+      });
+      
+      insights.push({
+        type: 'info',
+        metric: 'tracking_setup',
+        message: 'SEO tracking is active and will collect Core Web Vitals, page performance, and user engagement data.',
+        priority: 'low',
+        value: 0,
+        threshold: 1
+      });
+
+      return {
+        insights,
+        recommendations: [],
+        summary: {
+          totalInsights: insights.length,
+          highPriority: 0,
+          mediumPriority: 0,
+          lowPriority: insights.length
+        }
+      };
+    }
 
     // Core Web Vitals insights
     Object.keys(analytics.coreWebVitals).forEach(metric => {
