@@ -97,7 +97,7 @@ class AnalyticsService {
   async getUserMetrics() {
     try {
       const usersCollection = this.db.collection('users');
-      const pageTrackingCollection = this.db.collection('pageTracking');
+      const pageTrackingCollection = this.db.collection('pageViews');
       
       console.log('📊 Fetching user metrics from database...');
       
@@ -296,7 +296,7 @@ class AnalyticsService {
 
   // Conversion and engagement metrics
   async getConversionMetrics() {
-    const pageTrackingCollection = this.db.collection('pageTracking');
+    const pageTrackingCollection = this.db.collection('pageViews');
     const ordersCollection = this.db.collection('orders');
     
     // Calculate conversion metrics from page tracking data
@@ -366,7 +366,7 @@ class AnalyticsService {
 
   // Real-time metrics
   async getRealTimeMetrics() {
-    const pageTrackingCollection = this.db.collection('pageTracking');
+    const pageTrackingCollection = this.db.collection('pageViews');
     
     const now = new Date();
     const lastHour = new Date(now.getTime() - 60 * 60 * 1000);
@@ -425,7 +425,7 @@ class AnalyticsService {
     await this.init();
     
     const productsCollection = this.db.collection('products');
-    const pageTrackingCollection = this.db.collection('pageTracking');
+    const pageTrackingCollection = this.db.collection('pageViews');
     
     const [recentProducts, recentPageViews] = await Promise.all([
       productsCollection.find({ isActive: true })
@@ -476,7 +476,7 @@ class AnalyticsService {
 
   // Get performance trends
   async getPerformanceTrends(days = 30) {
-    const pageTrackingCollection = this.db.collection('pageTracking');
+    const pageTrackingCollection = this.db.collection('pageViews');
     
     const endDate = new Date();
     const startDate = new Date(endDate.getTime() - days * 24 * 60 * 60 * 1000);

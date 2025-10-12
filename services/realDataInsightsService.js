@@ -289,7 +289,7 @@ class RealDataInsightsService {
   // Get page tracking data
   async getPageTrackingData() {
     await this.initialize();
-    const pageTrackingCollection = this.db.collection('pageTracking');
+    const pageTrackingCollection = this.db.collection('pageViews');
     
     const now = new Date();
     const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
