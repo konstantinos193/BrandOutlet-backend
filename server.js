@@ -4,6 +4,7 @@ const helmet = require('helmet');
 const morgan = require('morgan');
 const rateLimit = require('express-rate-limit');
 const path = require('path');
+const fs = require('fs');
 require('dotenv').config();
 
 // Import HTML response middleware
@@ -168,6 +169,134 @@ app.use(htmlResponse);
 
 // Test HTML response route
 app.use('/api/test-html', require('./api/test-html'));
+
+// HTML view route for any API endpoint
+app.get('/api-view/:endpoint*', (req, res) => {
+  const endpoint = req.params.endpoint;
+  const fullPath = req.params[0] ? `/${endpoint}${req.params[0]}` : `/${endpoint}`;
+  const apiUrl = `/api${fullPath}`;
+  
+  console.log('🔍 HTML View requested for:', apiUrl);
+  
+  // Make internal request to the actual API
+  const http = require('http');
+  const options = {
+    hostname: 'localhost',
+    port: process.env.PORT || 3001,
+    path: apiUrl,
+    method: 'GET',
+    headers: {
+      'Content-Type': 'application/json'
+    }
+  };
+  
+  const proxyReq = http.request(options, (proxyRes) => {
+    let data = '';
+    proxyRes.on('data', (chunk) => {
+      data += chunk;
+    });
+    
+    proxyRes.on('end', () => {
+      try {
+        const responseData = JSON.parse(data);
+        
+        // Serve HTML response
+        const htmlPath = path.join(__dirname, 'views', 'api-response.html');
+        let html = fs.readFileSync(htmlPath, 'utf8');
+        
+        // Inject the response data into the HTML
+        const jsonData = JSON.stringify(responseData);
+        html = html.replace(
+          'x-data="apiViewer()"',
+          `x-data="apiViewer()" x-init="response = ${jsonData}; loading = false; lastFetch = new Date('${new Date().toISOString()}')"`
+        );
+        
+        // Set content type to HTML
+        res.setHeader('Content-Type', 'text/html');
+        res.send(html);
+      } catch (error) {
+        console.error('Error parsing API response:', error);
+        res.status(500).send('Error loading API response');
+      }
+    });
+  });
+  
+  proxyReq.on('error', (error) => {
+    console.error('Error making API request:', error);
+    res.status(500).send('Error connecting to API');
+  });
+  
+  proxyReq.end();
+});
+
+// Direct HTML test route (always serves HTML)
+app.get('/api/test-html-view', (req, res) => {
+  const testData = {
+    success: true,
+    message: 'This is a test response with beautiful HTML formatting!',
+    timestamp: new Date().toISOString(),
+    dataSource: 'test-endpoint',
+    data: {
+      insights: [
+        {
+          id: 'test-1',
+          title: 'Test Insight 1',
+          content: 'This is a test insight to demonstrate the beautiful HTML formatting.',
+          priority: 'high',
+          confidence: 95,
+          actionable: true,
+          category: 'test',
+          type: 'demo',
+          metrics: {
+            testMetric: 'testValue',
+            anotherMetric: 42
+          }
+        },
+        {
+          id: 'test-2',
+          title: 'Test Insight 2',
+          content: 'Another test insight with different priority and confidence levels.',
+          priority: 'medium',
+          confidence: 78,
+          actionable: true,
+          category: 'test',
+          type: 'demo',
+          metrics: {
+            demoMetric: 'demoValue',
+            numberMetric: 123
+          }
+        }
+      ],
+      totalInsights: 2,
+      testInfo: {
+        endpoint: '/api/test-html-view',
+        method: 'GET',
+        features: [
+          'Beautiful HTML formatting',
+          'Interactive UI with Alpine.js',
+          'Responsive design with Tailwind CSS',
+          'Real-time data display',
+          'Copy to clipboard functionality'
+        ]
+      }
+    }
+  };
+
+  // Force HTML response
+  const htmlPath = path.join(__dirname, 'views', 'api-response.html');
+  let html = fs.readFileSync(htmlPath, 'utf8');
+  
+  // Inject the response data into the HTML
+  const responseData = JSON.stringify(testData);
+  html = html.replace(
+    'x-data="apiViewer()"',
+    `x-data="apiViewer()" x-init="response = ${responseData}; loading = false; lastFetch = new Date('${new Date().toISOString()}')"`
+  );
+  
+  // Set content type to HTML
+  res.setHeader('Content-Type', 'text/html');
+  res.send(html);
+});
 
 // Health check endpoint
 const healthCheckPath = process.env.HEALTH_CHECK_PATH || '/health';

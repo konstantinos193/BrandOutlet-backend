@@ -155,8 +155,14 @@ router.post('/batch-metrics', async (req, res) => {
         device: trackingData.device
       };
 
-      seoMetrics.push(seoMetricData);
-      updateSEOAnalytics(seoMetricData);
+      // Store the metric in MongoDB
+      await initializeDB();
+      const seoCollection = db.collection('seoMetrics');
+      await seoCollection.insertOne(seoMetricData);
+      
+      // Update analytics (now calculated from database)
+      await updateSEOAnalytics(seoMetricData);
+      
       results.push(seoMetricData);
     }
 
@@ -305,16 +311,28 @@ router.get('/engagement', async (req, res) => {
 });
 
 // GET /api/seo/health - Health check
-router.get('/health', (req, res) => {
-  res.json({
-    success: true,
-    message: 'SEO tracking service is healthy',
-    timestamp: new Date().toISOString(),
-    stats: {
-      totalMetrics: seoMetrics.length,
-      lastUpdated: seoAnalytics.lastUpdated
-    }
-  });
+router.get('/health', async (req, res) => {
+  try {
+    await initializeDB();
+    const seoCollection = db.collection('seoMetrics');
+    const totalMetrics = await seoCollection.countDocuments();
+    
+    res.json({
+      success: true,
+      message: 'SEO tracking service is healthy',
+      timestamp: new Date().toISOString(),
+      stats: {
+        totalMetrics,
+        lastUpdated: new Date().toISOString()
+      }
+    });
+  } catch (error) {
+    res.status(500).json({
+      success: false,
+      message: 'SEO tracking service health check failed',
+      error: error.message
+    });
+  }
 });
 
 // Helper function to update SEO analytics

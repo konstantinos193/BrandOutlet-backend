@@ -6,7 +6,17 @@ const htmlResponse = (req, res, next) => {
   // Check if the request wants HTML response
   const wantsHtml = req.query.format === 'html' || 
                    req.headers.accept?.includes('text/html') ||
-                   req.path.includes('/api-response');
+                   req.path.includes('/api-response') ||
+                   req.path.includes('/test-html') ||
+                   req.query.html === 'true' ||
+                   req.query.view === 'html';
+
+  console.log('🔍 HTML Response Check:', {
+    path: req.path,
+    query: req.query,
+    accept: req.headers.accept,
+    wantsHtml: wantsHtml
+  });
 
   if (wantsHtml) {
     // Store original res.json method
