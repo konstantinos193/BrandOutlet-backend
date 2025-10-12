@@ -9,12 +9,12 @@ const trappers = [
   // US East Coast
   {
     id: '1',
-    name: 'Marcus Johnson',
+    name: 'Marcus Flex',
     region: 'US East Coast',
     city: 'New York',
     country: 'USA',
     contact: '+1-555-0101',
-    email: 'marcus.j@email.com',
+    email: 'marcus.f@email.com',
     specialties: ['Streetwear', 'Sneakers', 'Vintage'],
     rating: 4.9,
     completedOrders: 127,
@@ -23,16 +23,17 @@ const trappers = [
     availability: '24/7',
     verified: true,
     joinDate: '2023-01-15',
-    lastActive: '2024-01-20T10:30:00Z'
+    lastActive: '2024-01-20T10:30:00Z',
+    image: '/images/trappers/marcus-flex.jpg'
   },
   {
     id: '2',
-    name: 'Sarah Chen',
+    name: 'Jaden Stylez',
     region: 'US East Coast',
     city: 'Boston',
     country: 'USA',
     contact: '+1-555-0102',
-    email: 'sarah.c@email.com',
+    email: 'jaden.s@email.com',
     specialties: ['Luxury', 'Designer', 'Handbags'],
     rating: 4.8,
     completedOrders: 89,
@@ -41,16 +42,17 @@ const trappers = [
     availability: 'Mon-Fri 9AM-6PM EST',
     verified: true,
     joinDate: '2023-03-22',
-    lastActive: '2024-01-20T09:15:00Z'
+    lastActive: '2024-01-20T09:15:00Z',
+    image: '/images/trappers/jaden-stylez.jpg'
   },
   {
     id: '3',
-    name: 'David Rodriguez',
+    name: 'Carlos El Rey',
     region: 'US East Coast',
     city: 'Miami',
     country: 'USA',
     contact: '+1-555-0103',
-    email: 'david.r@email.com',
+    email: 'carlos.e@email.com',
     specialties: ['Streetwear', 'Sneakers', 'Urban'],
     rating: 4.7,
     completedOrders: 156,
@@ -59,18 +61,19 @@ const trappers = [
     availability: '24/7',
     verified: true,
     joinDate: '2022-11-08',
-    lastActive: '2024-01-20T14:45:00Z'
+    lastActive: '2024-01-20T14:45:00Z',
+    image: '/images/trappers/carlos-elrey.jpg'
   },
 
   // US West Coast
   {
     id: '4',
-    name: 'Alex Kim',
+    name: 'Tyler Westcoast',
     region: 'US West Coast',
     city: 'Los Angeles',
     country: 'USA',
     contact: '+1-555-0201',
-    email: 'alex.k@email.com',
+    email: 'tyler.w@email.com',
     specialties: ['Streetwear', 'Sneakers', 'Vintage'],
     rating: 4.9,
     completedOrders: 203,
@@ -79,7 +82,8 @@ const trappers = [
     availability: '24/7',
     verified: true,
     joinDate: '2022-08-12',
-    lastActive: '2024-01-20T12:20:00Z'
+    lastActive: '2024-01-20T12:20:00Z',
+    image: '/images/trappers/tyler-westcoast.jpg'
   },
   {
     id: '5',

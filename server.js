@@ -190,50 +190,7 @@ app.get('/api/test', (req, res) => {
   });
 });
 
-// Direct analytics tracking endpoint (bypasses route loader)
-app.post('/api/analytics/track', async (req, res) => {
-  try {
-    const event = req.body;
-    
-    // Validate required fields
-    if (!event.eventName || !event.timestamp) {
-      return res.status(400).json({
-        success: false,
-        error: 'Missing required fields: eventName, timestamp'
-      });
-    }
-
-    // Add metadata
-    const trackedEvent = {
-      ...event,
-      id: Date.now() + Math.random(),
-      receivedAt: new Date(),
-      userAgent: req.headers['user-agent'],
-      ip: req.ip || req.connection.remoteAddress,
-      createdAt: new Date()
-    };
-
-    // Store event in MongoDB
-    const analyticsCollection = db.collection('analyticsEvents');
-    await analyticsCollection.insertOne(trackedEvent);
-
-    console.log(`📊 Analytics event tracked: ${event.eventName}`);
-
-    res.json({
-      success: true,
-      message: 'Event tracked successfully',
-      eventId: trackedEvent.id
-    });
-
-  } catch (error) {
-    console.error('Error tracking analytics event:', error);
-    res.status(500).json({
-      success: false,
-      error: 'Failed to track event',
-      message: error.message
-    });
-  }
-});
+// Analytics tracking is handled by the analytics-cached.js route
 
 // API routes - Critical routes loaded immediately
 console.log('🔧 Loading critical API routes...');
