@@ -327,6 +327,7 @@ router.get('/health', async (req, res) => {
       }
     });
   } catch (error) {
+    console.error('SEO health check error:', error);
     res.status(500).json({
       success: false,
       message: 'SEO tracking service health check failed',

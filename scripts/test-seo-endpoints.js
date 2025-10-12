@@ -5,7 +5,7 @@
  * This tests the API endpoints without database dependencies
  */
 
-const baseUrl = process.env.BACKEND_URL || 'http://localhost:3001';
+const baseUrl = process.env.BACKEND_URL || 'https://resellapi.onrender.com';
 
 async function testSEPEndpoints() {
   console.log('🧪 Testing SEO API Endpoints...\n');

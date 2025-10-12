@@ -135,6 +135,10 @@ const rateLimits = require('./middleware/rateLimiting');
 app.use('/api/health', rateLimits.public);
 app.use('/api/test', rateLimits.public);
 app.use('/api/analytics/track', rateLimits.public);
+// SEO endpoints with more lenient rate limiting
+app.use('/api/seo/metrics', rateLimits.public);
+app.use('/api/seo/batch-metrics', rateLimits.public);
+app.use('/api/seo-metrics', rateLimits.public);
 
 // Apply strict rate limiting to unauthenticated routes only
 // Skip admin routes as they have their own authentication and rate limiting
