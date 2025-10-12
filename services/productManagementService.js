@@ -1,11 +1,11 @@
 const { connectDB } = require('../config/database');
 const Product = require('../models/Product');
 const { ObjectId } = require('mongodb');
+const cacheService = require('./cacheService');
 
 class ProductManagementService {
   constructor() {
     this.db = null;
-    this.cache = new Map();
     this.cacheTimeout = 5 * 60 * 1000; // 5 minutes
   }
 
@@ -15,22 +15,9 @@ class ProductManagementService {
     }
   }
 
-  // Get cached data or generate new data
+  // Get cached data or generate new data using Redis
   async getCachedData(key, generator, ttl = this.cacheTimeout) {
-    const cached = this.cache.get(key);
-    const now = Date.now();
-    
-    if (cached && (now - cached.timestamp) < ttl) {
-      return cached.data;
-    }
-    
-    const data = await generator();
-    this.cache.set(key, {
-      data,
-      timestamp: now
-    });
-    
-    return data;
+    return await cacheService.cacheWithTTL(key, generator, ttl);
   }
 
   // Get all products with pagination and filtering

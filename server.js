@@ -191,10 +191,7 @@ app.get('/api/test', (req, res) => {
 });
 
 // Direct analytics tracking endpoint (bypasses route loader)
-let analyticsEvents = [];
-const maxEvents = 10000;
-
-app.post('/api/analytics/track', (req, res) => {
+app.post('/api/analytics/track', async (req, res) => {
   try {
     const event = req.body;
     
@@ -210,18 +207,15 @@ app.post('/api/analytics/track', (req, res) => {
     const trackedEvent = {
       ...event,
       id: Date.now() + Math.random(),
-      receivedAt: new Date().toISOString(),
+      receivedAt: new Date(),
       userAgent: req.headers['user-agent'],
-      ip: req.ip || req.connection.remoteAddress
+      ip: req.ip || req.connection.remoteAddress,
+      createdAt: new Date()
     };
 
-    // Store event
-    analyticsEvents.push(trackedEvent);
-    
-    // Keep only last maxEvents
-    if (analyticsEvents.length > maxEvents) {
-      analyticsEvents.splice(0, analyticsEvents.length - maxEvents);
-    }
+    // Store event in MongoDB
+    const analyticsCollection = db.collection('analyticsEvents');
+    await analyticsCollection.insertOne(trackedEvent);
 
     console.log(`📊 Analytics event tracked: ${event.eventName}`);
 
@@ -400,19 +394,21 @@ app.get('/', (req, res) => {
         
         .logo {
             font-family: 'Moondalator', monospace;
-            font-size: 4rem;
+            font-size: 1.2rem;
             font-weight: bold;
-            margin-bottom: 0.5rem;
+            margin-bottom: 0.2rem;
+            line-height: 1;
             text-shadow: 
-                0 0 10px #00ff00,
-                0 0 20px #00ff00,
-                0 0 30px #00ff00;
+                0 0 3px #00ff00,
+                0 0 6px #00ff00;
             background: linear-gradient(45deg, #00ff00, #00ffff, #ff00ff, #ffff00);
             background-size: 300% 300%;
             -webkit-background-clip: text;
             -webkit-text-fill-color: transparent;
             background-clip: text;
             animation: logoGlow 2s ease-in-out infinite alternate;
+            display: inline-block;
+            white-space: nowrap;
         }
         
         @keyframes logoGlow {
@@ -519,7 +515,7 @@ app.get('/', (req, res) => {
         
         @media (max-width: 768px) {
             .logo {
-                font-size: 2.5rem;
+                font-size: 1rem;
             }
             
             .subtitle {

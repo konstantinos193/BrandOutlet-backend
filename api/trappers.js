@@ -1,189 +1,275 @@
 const express = require('express');
+const cacheService = require('../services/cacheService');
 const router = express.Router();
 
-// Simple in-memory cache for trappers data
-let trappersCache = null;
-let regionsCache = null;
 const CACHE_DURATION = 5 * 60 * 1000; // 5 minutes
-let lastCacheTime = 0;
-
-// Cache helper functions
-const isCacheValid = () => {
-  return trappersCache && regionsCache && (Date.now() - lastCacheTime) < CACHE_DURATION;
-};
-
-const updateCache = () => {
-  trappersCache = trappers;
-  regionsCache = regions;
-  lastCacheTime = Date.now();
-};
 
 // Trapper data - in a real app this would come from a database
 const trappers = [
   // US East Coast
   {
-    id: 'trapper-1',
-    name: 'Marcus "Flex" Johnson',
-    region: 'New York',
-    image: '/images/trappers/marcus-flex.jpg',
-    description: 'Brooklyn-born trapper known for his oversized fits and luxury streetwear combinations.',
-    style: ['Oversized Fits', 'Luxury Streetwear', 'Bold Graphics'],
-    socialMedia: {
-      instagram: '@marcusflex_ny',
-      twitter: '@marcusflex'
-    }
+    id: '1',
+    name: 'Marcus Johnson',
+    region: 'US East Coast',
+    city: 'New York',
+    country: 'USA',
+    contact: '+1-555-0101',
+    email: 'marcus.j@email.com',
+    specialties: ['Streetwear', 'Sneakers', 'Vintage'],
+    rating: 4.9,
+    completedOrders: 127,
+    responseTime: '2-4 hours',
+    languages: ['English', 'Spanish'],
+    availability: '24/7',
+    verified: true,
+    joinDate: '2023-01-15',
+    lastActive: '2024-01-20T10:30:00Z'
   },
   {
-    id: 'trapper-2',
-    name: 'Jaden "Stylez" Williams',
-    region: 'Atlanta',
-    image: '/images/trappers/jaden-stylez.jpg',
-    description: 'ATL trapper with a signature mix of trap culture and high fashion.',
-    style: ['Trap Fashion', 'Designer Pieces', 'Street Cred'],
-    socialMedia: {
-      instagram: '@jadenstylez_atl',
-      youtube: 'JadenStylez'
-    }
+    id: '2',
+    name: 'Sarah Chen',
+    region: 'US East Coast',
+    city: 'Boston',
+    country: 'USA',
+    contact: '+1-555-0102',
+    email: 'sarah.c@email.com',
+    specialties: ['Luxury', 'Designer', 'Handbags'],
+    rating: 4.8,
+    completedOrders: 89,
+    responseTime: '1-3 hours',
+    languages: ['English', 'Mandarin'],
+    availability: 'Mon-Fri 9AM-6PM EST',
+    verified: true,
+    joinDate: '2023-03-22',
+    lastActive: '2024-01-20T09:15:00Z'
   },
   {
-    id: 'trapper-3',
-    name: 'Carlos "El Rey" Rodriguez',
-    region: 'Miami',
-    image: '/images/trappers/carlos-elrey.jpg',
-    description: 'Miami trapper bringing Latin flair to streetwear with vibrant colors and bold statements.',
-    style: ['Vibrant Colors', 'Latin Streetwear', 'Bold Statements'],
-    socialMedia: {
-      instagram: '@carloselrey_mia',
-      twitter: '@carloselrey'
-    }
+    id: '3',
+    name: 'David Rodriguez',
+    region: 'US East Coast',
+    city: 'Miami',
+    country: 'USA',
+    contact: '+1-555-0103',
+    email: 'david.r@email.com',
+    specialties: ['Streetwear', 'Sneakers', 'Urban'],
+    rating: 4.7,
+    completedOrders: 156,
+    responseTime: '3-6 hours',
+    languages: ['English', 'Spanish'],
+    availability: '24/7',
+    verified: true,
+    joinDate: '2022-11-08',
+    lastActive: '2024-01-20T14:45:00Z'
   },
 
   // US West Coast
   {
-    id: 'trapper-4',
-    name: 'Tyler "West Coast" Chen',
-    region: 'Los Angeles',
-    image: '/images/trappers/tyler-westcoast.jpg',
-    description: 'LA trapper known for his minimalist approach and premium streetwear selections.',
-    style: ['Minimalist', 'Premium Streetwear', 'Clean Fits'],
-    socialMedia: {
-      instagram: '@tylerwestcoast_la',
-      twitter: '@tylerwestcoast'
-    }
+    id: '4',
+    name: 'Alex Kim',
+    region: 'US West Coast',
+    city: 'Los Angeles',
+    country: 'USA',
+    contact: '+1-555-0201',
+    email: 'alex.k@email.com',
+    specialties: ['Streetwear', 'Sneakers', 'Vintage'],
+    rating: 4.9,
+    completedOrders: 203,
+    responseTime: '1-2 hours',
+    languages: ['English', 'Korean'],
+    availability: '24/7',
+    verified: true,
+    joinDate: '2022-08-12',
+    lastActive: '2024-01-20T12:20:00Z'
   },
   {
-    id: 'trapper-5',
-    name: 'Marcus "Bay Area" Thompson',
-    region: 'San Francisco',
-    image: '/images/trappers/marcus-bayarea.jpg',
-    description: 'Bay Area trapper mixing tech culture with streetwear aesthetics.',
-    style: ['Tech Streetwear', 'Innovative Fits', 'Limited Drops'],
-    socialMedia: {
-      instagram: '@marcusbayarea_sf',
-      youtube: 'MarcusBayArea'
-    }
-  },
-
-  // International
-  {
-    id: 'trapper-6',
-    name: 'James "UK Trap" Mitchell',
-    region: 'London',
-    image: '/images/trappers/james-uktrap.jpg',
-    description: 'London trapper bringing British street culture to the global stage.',
-    style: ['UK Streetwear', 'International Style', 'Cultural Fusion'],
-    socialMedia: {
-      instagram: '@jamesuktrap_london',
-      twitter: '@jamesuktrap'
-    }
+    id: '5',
+    name: 'Emma Thompson',
+    region: 'US West Coast',
+    city: 'San Francisco',
+    country: 'USA',
+    contact: '+1-555-0202',
+    email: 'emma.t@email.com',
+    specialties: ['Luxury', 'Designer', 'Jewelry'],
+    rating: 4.8,
+    completedOrders: 134,
+    responseTime: '2-4 hours',
+    languages: ['English', 'French'],
+    availability: 'Mon-Fri 8AM-5PM PST',
+    verified: true,
+    joinDate: '2023-02-14',
+    lastActive: '2024-01-20T11:30:00Z'
   },
   {
-    id: 'trapper-7',
-    name: 'Pierre "Paris Trap" Dubois',
-    region: 'Paris',
-    image: '/images/trappers/pierre-paristrap.jpg',
-    description: 'Parisian trapper combining French elegance with streetwear culture.',
-    style: ['French Elegance', 'Street Sophistication', 'Artistic Fits'],
-    socialMedia: {
-      instagram: '@pierreparistrap',
-      twitter: '@pierreparistrap'
-    }
-  },
-  {
-    id: 'trapper-8',
-    name: 'Hiroshi "Tokyo Style" Nakamura',
-    region: 'Tokyo',
-    image: '/images/trappers/hiroshi-tokyostyle.jpg',
-    description: 'Tokyo trapper known for avant-garde streetwear and unique styling.',
-    style: ['Avant-garde', 'Unique Styling', 'Japanese Streetwear'],
-    socialMedia: {
-      instagram: '@hiroshitokyostyle',
-      youtube: 'HiroshiTokyoStyle'
-    }
+    id: '6',
+    name: 'Carlos Mendez',
+    region: 'US West Coast',
+    city: 'Seattle',
+    country: 'USA',
+    contact: '+1-555-0203',
+    email: 'carlos.m@email.com',
+    specialties: ['Outdoor', 'Tech', 'Casual'],
+    rating: 4.6,
+    completedOrders: 78,
+    responseTime: '4-8 hours',
+    languages: ['English', 'Spanish'],
+    availability: 'Weekends only',
+    verified: true,
+    joinDate: '2023-06-30',
+    lastActive: '2024-01-19T16:00:00Z'
   },
 
-  // Canada
+  // Europe
   {
-    id: 'trapper-9',
-    name: 'Devon "North Style" Campbell',
-    region: 'Toronto',
-    image: '/images/trappers/devon-northstyle.jpg',
-    description: 'Toronto trapper bringing Canadian street culture to the forefront.',
-    style: ['Canadian Streetwear', 'Winter Fits', 'Cultural Pride'],
-    socialMedia: {
-      instagram: '@devonnorthstyle_toronto',
-      twitter: '@devonnorthstyle'
-    }
+    id: '7',
+    name: 'Sophie Dubois',
+    region: 'Europe',
+    city: 'Paris',
+    country: 'France',
+    contact: '+33-1-5555-0101',
+    email: 'sophie.d@email.com',
+    specialties: ['Luxury', 'Designer', 'Fashion'],
+    rating: 4.9,
+    completedOrders: 189,
+    responseTime: '1-3 hours',
+    languages: ['French', 'English', 'Italian'],
+    availability: 'Mon-Fri 9AM-7PM CET',
+    verified: true,
+    joinDate: '2022-05-18',
+    lastActive: '2024-01-20T15:10:00Z'
+  },
+  {
+    id: '8',
+    name: 'James Wilson',
+    region: 'Europe',
+    city: 'London',
+    country: 'UK',
+    contact: '+44-20-5555-0101',
+    email: 'james.w@email.com',
+    specialties: ['Streetwear', 'Sneakers', 'Vintage'],
+    rating: 4.7,
+    completedOrders: 145,
+    responseTime: '2-5 hours',
+    languages: ['English', 'French'],
+    availability: 'Mon-Fri 8AM-6PM GMT',
+    verified: true,
+    joinDate: '2023-01-10',
+    lastActive: '2024-01-20T13:25:00Z'
+  },
+  {
+    id: '9',
+    name: 'Marco Rossi',
+    region: 'Europe',
+    city: 'Milan',
+    country: 'Italy',
+    contact: '+39-02-5555-0101',
+    email: 'marco.r@email.com',
+    specialties: ['Luxury', 'Designer', 'Fashion'],
+    rating: 4.8,
+    completedOrders: 167,
+    responseTime: '1-4 hours',
+    languages: ['Italian', 'English', 'Spanish'],
+    availability: 'Mon-Fri 9AM-6PM CET',
+    verified: true,
+    joinDate: '2022-09-03',
+    lastActive: '2024-01-20T14:40:00Z'
   },
 
-  // Australia
+  // Asia Pacific
   {
-    id: 'trapper-10',
-    name: 'Liam "Down Under" O\'Connor',
-    region: 'Sydney',
-    image: '/images/trappers/liam-downunder.jpg',
-    description: 'Sydney trapper with a unique Australian take on global streetwear trends.',
-    style: ['Australian Streetwear', 'Beach Culture', 'Global Trends'],
-    socialMedia: {
-      instagram: '@liamdownunder_sydney',
-      youtube: 'LiamDownUnder'
-    }
+    id: '10',
+    name: 'Yuki Tanaka',
+    region: 'Asia Pacific',
+    city: 'Tokyo',
+    country: 'Japan',
+    contact: '+81-3-5555-0101',
+    email: 'yuki.t@email.com',
+    specialties: ['Streetwear', 'Sneakers', 'Tech'],
+    rating: 4.9,
+    completedOrders: 234,
+    responseTime: '1-2 hours',
+    languages: ['Japanese', 'English', 'Korean'],
+    availability: '24/7',
+    verified: true,
+    joinDate: '2022-04-12',
+    lastActive: '2024-01-20T16:55:00Z'
+  },
+  {
+    id: '11',
+    name: 'Priya Patel',
+    region: 'Asia Pacific',
+    city: 'Mumbai',
+    country: 'India',
+    contact: '+91-22-5555-0101',
+    email: 'priya.p@email.com',
+    specialties: ['Luxury', 'Designer', 'Jewelry'],
+    rating: 4.7,
+    completedOrders: 112,
+    responseTime: '2-6 hours',
+    languages: ['Hindi', 'English', 'Gujarati'],
+    availability: 'Mon-Sat 9AM-8PM IST',
+    verified: true,
+    joinDate: '2023-04-20',
+    lastActive: '2024-01-20T10:15:00Z'
+  },
+  {
+    id: '12',
+    name: 'Liam O\'Connor',
+    region: 'Asia Pacific',
+    city: 'Sydney',
+    country: 'Australia',
+    contact: '+61-2-5555-0101',
+    email: 'liam.o@email.com',
+    specialties: ['Outdoor', 'Casual', 'Streetwear'],
+    rating: 4.6,
+    completedOrders: 98,
+    responseTime: '3-6 hours',
+    languages: ['English', 'Mandarin'],
+    availability: 'Mon-Fri 8AM-5PM AEST',
+    verified: true,
+    joinDate: '2023-07-15',
+    lastActive: '2024-01-20T08:30:00Z'
   }
 ];
 
+// Regions data
 const regions = [
-  'All Regions',
+  'US East Coast',
+  'US West Coast', 
+  'Europe',
+  'Asia Pacific',
   'New York',
-  'Atlanta', 
+  'Boston',
   'Miami',
   'Los Angeles',
   'San Francisco',
-  'London',
+  'Seattle',
   'Paris',
+  'London',
+  'Milan',
   'Tokyo',
+  'Mumbai',
+  'Sydney',
   'Toronto',
   'Sydney'
 ];
 
 // GET /api/trappers - Get all trappers
-router.get('/', (req, res) => {
+router.get('/', async (req, res) => {
   try {
-    // Update cache if needed
-    if (!isCacheValid()) {
-      updateCache();
-    }
-
     const { region } = req.query;
     
-    let filteredTrappers = trappersCache;
-    if (region && region !== 'All Regions') {
-      filteredTrappers = trappersCache.filter(trapper => trapper.region === region);
-    }
+    const cacheKey = `trappers-${region || 'all'}`;
+    const filteredTrappers = await cacheService.cacheWithTTL(cacheKey, async () => {
+      if (region && region !== 'All Regions') {
+        return trappers.filter(trapper => trapper.region === region);
+      }
+      return trappers;
+    }, CACHE_DURATION);
 
     // Add cache headers for client-side caching
     res.set({
       'Cache-Control': 'public, max-age=300', // 5 minutes
-      'ETag': `"trappers-${lastCacheTime}"`
+      'ETag': `"trappers-${Date.now()}"`
     });
 
     res.json({
@@ -191,84 +277,78 @@ router.get('/', (req, res) => {
       data: filteredTrappers,
       total: filteredTrappers.length,
       cached: true,
-      cacheTime: lastCacheTime
+      cacheTime: Date.now()
     });
+
   } catch (error) {
     console.error('Error fetching trappers:', error);
     res.status(500).json({
       success: false,
-      message: 'Failed to fetch trappers',
-      error: error.message
+      error: 'Failed to fetch trappers',
+      message: error.message
     });
   }
 });
 
 // GET /api/trappers/regions - Get all regions
-router.get('/regions', (req, res) => {
+router.get('/regions', async (req, res) => {
   try {
-    // Update cache if needed
-    if (!isCacheValid()) {
-      updateCache();
-    }
+    const cacheKey = 'trappers-regions';
+    const regionsData = await cacheService.cacheWithTTL(cacheKey, async () => {
+      return regions;
+    }, CACHE_DURATION);
 
     // Add cache headers for client-side caching
     res.set({
       'Cache-Control': 'public, max-age=300', // 5 minutes
-      'ETag': `"regions-${lastCacheTime}"`
+      'ETag': `"regions-${Date.now()}"`
     });
 
     res.json({
       success: true,
-      data: regionsCache,
+      data: regionsData,
       cached: true,
-      cacheTime: lastCacheTime
+      cacheTime: Date.now()
     });
+
   } catch (error) {
     console.error('Error fetching regions:', error);
     res.status(500).json({
       success: false,
-      message: 'Failed to fetch regions',
-      error: error.message
+      error: 'Failed to fetch regions',
+      message: error.message
     });
   }
 });
 
-// GET /api/trappers/:id - Get specific trapper
-router.get('/:id', (req, res) => {
+// GET /api/trappers/:id - Get specific trapper by ID
+router.get('/:id', async (req, res) => {
   try {
-    // Update cache if needed
-    if (!isCacheValid()) {
-      updateCache();
-    }
-
     const { id } = req.params;
-    const trapper = trappersCache.find(t => t.id === id);
+    
+    const cacheKey = `trapper-${id}`;
+    const trapper = await cacheService.cacheWithTTL(cacheKey, async () => {
+      return trappers.find(t => t.id === id);
+    }, CACHE_DURATION);
     
     if (!trapper) {
       return res.status(404).json({
         success: false,
-        message: 'Trapper not found'
+        error: 'Trapper not found'
       });
     }
 
-    // Add cache headers for client-side caching
-    res.set({
-      'Cache-Control': 'public, max-age=300', // 5 minutes
-      'ETag': `"trapper-${id}-${lastCacheTime}"`
-    });
-
     res.json({
       success: true,
-      data: trapper,
-      cached: true,
-      cacheTime: lastCacheTime
+      data: trapper
     });
+
   } catch (error) {
     console.error('Error fetching trapper:', error);
     res.status(500).json({
       success: false,
-      message: 'Failed to fetch trapper',
-      error: error.message
+      error: 'Failed to fetch trapper',
+      message: error.message
     });
   }
 });

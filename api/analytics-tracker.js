@@ -1,13 +1,20 @@
 const express = require('express');
 const router = express.Router();
+const { connectDB } = require('../config/database');
 
-// In-memory storage for analytics events
-const analyticsEvents = [];
-const maxEvents = 10000; // Keep last 10k events
+let db = null;
+
+// Initialize database connection
+const initializeDB = async () => {
+  if (!db) {
+    db = await connectDB();
+  }
+};
 
 // POST /api/analytics-tracker/track - Track analytics events
 router.post('/track', async (req, res) => {
   try {
+    await initializeDB();
     const event = req.body;
     
     // Validate required fields
@@ -22,18 +29,15 @@ router.post('/track', async (req, res) => {
     const trackedEvent = {
       ...event,
       id: Date.now() + Math.random(),
-      receivedAt: new Date().toISOString(),
+      receivedAt: new Date(),
       userAgent: req.headers['user-agent'],
-      ip: req.ip || req.connection.remoteAddress
+      ip: req.ip || req.connection.remoteAddress,
+      createdAt: new Date()
     };
 
-    // Store event
-    analyticsEvents.push(trackedEvent);
-    
-    // Keep only last maxEvents
-    if (analyticsEvents.length > maxEvents) {
-      analyticsEvents.splice(0, analyticsEvents.length - maxEvents);
-    }
+    // Store event in MongoDB
+    const analyticsCollection = db.collection('analyticsEvents');
+    await analyticsCollection.insertOne(trackedEvent);
 
     console.log(`📊 Analytics event tracked: ${event.eventName}`);
 
@@ -56,13 +60,22 @@ router.post('/track', async (req, res) => {
 // GET /api/analytics-tracker/events - Get analytics events
 router.get('/events', async (req, res) => {
   try {
+    await initializeDB();
     const limit = parseInt(req.query.limit) || 100;
-    const events = analyticsEvents.slice(-limit);
+    const analyticsCollection = db.collection('analyticsEvents');
+    
+    const events = await analyticsCollection
+      .find({})
+      .sort({ createdAt: -1 })
+      .limit(limit)
+      .toArray();
+    
+    const total = await analyticsCollection.countDocuments();
     
     res.json({
       success: true,
       data: events,
-      total: analyticsEvents.length,
+      total: total,
       timestamp: new Date().toISOString()
     });
   } catch (error) {
@@ -78,12 +91,23 @@ router.get('/events', async (req, res) => {
 // GET /api/analytics-tracker/stats - Get analytics stats
 router.get('/stats', async (req, res) => {
   try {
+    await initializeDB();
+    const analyticsCollection = db.collection('analyticsEvents');
+    
+    const [totalEvents, uniqueUsers, uniqueSessions, lastEvent, firstEvent] = await Promise.all([
+      analyticsCollection.countDocuments(),
+      analyticsCollection.distinct('user_id').then(users => users.length),
+      analyticsCollection.distinct('session_id').then(sessions => sessions.length),
+      analyticsCollection.findOne({}, { sort: { createdAt: -1 } }),
+      analyticsCollection.findOne({}, { sort: { createdAt: 1 } })
+    ]);
+    
     const stats = {
-      totalEvents: analyticsEvents.length,
-      uniqueUsers: new Set(analyticsEvents.map(e => e.user_id)).size,
-      uniqueSessions: new Set(analyticsEvents.map(e => e.session_id)).size,
-      lastEvent: analyticsEvents[analyticsEvents.length - 1]?.timestamp,
-      firstEvent: analyticsEvents[0]?.timestamp
+      totalEvents,
+      uniqueUsers,
+      uniqueSessions,
+      lastEvent: lastEvent?.timestamp,
+      firstEvent: firstEvent?.timestamp
     };
     
     res.json({

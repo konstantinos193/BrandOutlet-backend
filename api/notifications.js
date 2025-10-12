@@ -1,10 +1,19 @@
 const express = require('express');
 const { v4: uuidv4 } = require('uuid');
-const { getDB } = require('../config/database');
+const { connectDB } = require('../config/database');
 const router = express.Router();
 
-// In-memory storage for notifications (replace with database in production)
-let notifications = [
+let db = null;
+
+// Initialize database connection
+const initializeDB = async () => {
+  if (!db) {
+    db = await connectDB();
+  }
+};
+
+// Sample notifications data (in production, this would come from database)
+const sampleNotifications = [
   {
     id: uuidv4(),
     type: 'order',
@@ -22,82 +31,122 @@ let notifications = [
   },
   {
     id: uuidv4(),
-    type: 'verification',
-    title: 'Product Verification Pending',
-    message: '3 products waiting for authenticity verification',
-    timestamp: new Date(Date.now() - 2 * 60 * 60 * 1000), // 2 hours ago
+    type: 'inventory',
+    title: 'Low Stock Alert',
+    message: 'Nike Air Max 270 - Size 10 is running low (3 items left)',
+    timestamp: new Date(Date.now() - 15 * 60 * 1000), // 15 minutes ago
     unread: true,
     priority: 'medium',
     data: {
-      pendingCount: 3,
-      products: ['Nike Air Max', 'Adidas Ultraboost', 'Jordan 1 Retro']
+      productId: 'PROD-123',
+      productName: 'Nike Air Max 270',
+      currentStock: 3,
+      threshold: 5
     }
   },
   {
     id: uuidv4(),
     type: 'system',
-    title: 'System Update Available',
-    message: 'Version 2.1.0 is ready to install with new features',
-    timestamp: new Date(Date.now() - 24 * 60 * 60 * 1000), // 1 day ago
+    title: 'System Update',
+    message: 'Scheduled maintenance completed successfully',
+    timestamp: new Date(Date.now() - 2 * 60 * 60 * 1000), // 2 hours ago
     unread: false,
     priority: 'low',
     data: {
-      version: '2.1.0',
-      features: ['Enhanced analytics', 'New payment methods', 'Improved UI']
+      updateType: 'maintenance',
+      duration: '30 minutes',
+      status: 'completed'
     }
   },
   {
     id: uuidv4(),
-    type: 'inventory',
-    title: 'Low Stock Alert',
-    message: 'Nike Air Max 270 is running low (5 items left)',
-    timestamp: new Date(Date.now() - 3 * 60 * 60 * 1000), // 3 hours ago
-    unread: true,
+    type: 'user',
+    title: 'New User Registration',
+    message: 'Sarah Wilson has registered for an account',
+    timestamp: new Date(Date.now() - 4 * 60 * 60 * 1000), // 4 hours ago
+    unread: false,
+    priority: 'low',
+    data: {
+      userId: 'USER-456',
+      userName: 'Sarah Wilson',
+      registrationDate: new Date(Date.now() - 4 * 60 * 60 * 1000)
+    }
+  },
+  {
+    id: uuidv4(),
+    type: 'payment',
+    title: 'Payment Processed',
+    message: 'Payment of €299.99 for Order #ORD-001 has been processed successfully',
+    timestamp: new Date(Date.now() - 6 * 60 * 60 * 1000), // 6 hours ago
+    unread: false,
     priority: 'medium',
     data: {
-      productName: 'Nike Air Max 270',
-      currentStock: 5,
-      minThreshold: 10
+      orderId: 'ORD-001',
+      amount: 299.99,
+      paymentMethod: 'Credit Card',
+      transactionId: 'TXN-789'
     }
   }
 ];
 
+// Initialize sample data in database
+const initializeSampleData = async () => {
+  try {
+    await initializeDB();
+    const notificationsCollection = db.collection('notifications');
+    
+    // Check if notifications already exist
+    const existingCount = await notificationsCollection.countDocuments();
+    if (existingCount === 0) {
+      // Insert sample notifications
+      await notificationsCollection.insertMany(sampleNotifications);
+      console.log('✅ Sample notifications initialized in database');
+    }
+  } catch (error) {
+    console.error('Error initializing sample notifications:', error);
+  }
+};
+
+// Initialize sample data on startup
+initializeSampleData();
+
 // GET /api/notifications - Get all notifications
 router.get('/', async (req, res) => {
   try {
+    await initializeDB();
     const { limit = 50, unread_only = false, type } = req.query;
     
-    let filteredNotifications = [...notifications];
+    const notificationsCollection = db.collection('notifications');
     
-    // Filter by unread status
+    // Build query
+    const query = {};
     if (unread_only === 'true') {
-      filteredNotifications = filteredNotifications.filter(n => n.unread);
+      query.unread = true;
     }
-    
-    // Filter by type
     if (type) {
-      filteredNotifications = filteredNotifications.filter(n => n.type === type);
+      query.type = type;
     }
     
-    // Sort by timestamp (newest first)
-    filteredNotifications.sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp));
-    
-    // Apply limit
-    const limitedNotifications = filteredNotifications.slice(0, parseInt(limit));
+    // Get notifications from database
+    const notifications = await notificationsCollection
+      .find(query)
+      .sort({ timestamp: -1 })
+      .limit(parseInt(limit))
+      .toArray();
     
     // Count unread notifications
-    const unreadCount = notifications.filter(n => n.unread).length;
+    const unreadCount = await notificationsCollection.countDocuments({ unread: true });
     
     res.json({
       success: true,
       data: {
-        notifications: limitedNotifications,
-        total: filteredNotifications.length,
-        unreadCount,
+        notifications: notifications,
+        total: notifications.length,
+        unreadCount: unreadCount,
         lastUpdated: new Date().toISOString()
       }
     });
-    
+
   } catch (error) {
     console.error('Error fetching notifications:', error);
     res.status(500).json({
@@ -108,19 +157,20 @@ router.get('/', async (req, res) => {
   }
 });
 
-// GET /api/notifications/unread-count - Get unread count only
+// GET /api/notifications/unread-count - Get unread count
 router.get('/unread-count', async (req, res) => {
   try {
-    const unreadCount = notifications.filter(n => n.unread).length;
+    await initializeDB();
+    const notificationsCollection = db.collection('notifications');
+    const unreadCount = await notificationsCollection.countDocuments({ unread: true });
     
     res.json({
       success: true,
       data: {
-        unreadCount,
-        lastChecked: new Date().toISOString()
+        unreadCount: unreadCount
       }
     });
-    
+
   } catch (error) {
     console.error('Error fetching unread count:', error);
     res.status(500).json({
@@ -134,28 +184,27 @@ router.get('/unread-count', async (req, res) => {
 // PUT /api/notifications/:id/read - Mark notification as read
 router.put('/:id/read', async (req, res) => {
   try {
+    await initializeDB();
     const { id } = req.params;
     
-    const notification = notifications.find(n => n.id === id);
-    if (!notification) {
+    const notificationsCollection = db.collection('notifications');
+    const result = await notificationsCollection.updateOne(
+      { id: id },
+      { $set: { unread: false, readAt: new Date() } }
+    );
+    
+    if (result.matchedCount === 0) {
       return res.status(404).json({
         success: false,
         error: 'Notification not found'
       });
     }
-    
-    notification.unread = false;
-    notification.readAt = new Date();
-    
+
     res.json({
       success: true,
-      message: 'Notification marked as read',
-      data: {
-        id: notification.id,
-        unread: notification.unread
-      }
+      message: 'Notification marked as read'
     });
-    
+
   } catch (error) {
     console.error('Error marking notification as read:', error);
     res.status(500).json({
@@ -169,24 +218,19 @@ router.put('/:id/read', async (req, res) => {
 // PUT /api/notifications/read-all - Mark all notifications as read
 router.put('/read-all', async (req, res) => {
   try {
-    const updatedCount = notifications.filter(n => n.unread).length;
+    await initializeDB();
+    const notificationsCollection = db.collection('notifications');
     
-    notifications.forEach(notification => {
-      if (notification.unread) {
-        notification.unread = false;
-        notification.readAt = new Date();
-      }
-    });
-    
+    const result = await notificationsCollection.updateMany(
+      { unread: true },
+      { $set: { unread: false, readAt: new Date() } }
+    );
+
     res.json({
       success: true,
-      message: `Marked ${updatedCount} notifications as read`,
-      data: {
-        updatedCount,
-        unreadCount: 0
-      }
+      message: `Marked ${result.modifiedCount} notifications as read`
     });
-    
+
   } catch (error) {
     console.error('Error marking all notifications as read:', error);
     res.status(500).json({
@@ -200,23 +244,24 @@ router.put('/read-all', async (req, res) => {
 // DELETE /api/notifications/:id - Delete notification
 router.delete('/:id', async (req, res) => {
   try {
+    await initializeDB();
     const { id } = req.params;
     
-    const notificationIndex = notifications.findIndex(n => n.id === id);
-    if (notificationIndex === -1) {
+    const notificationsCollection = db.collection('notifications');
+    const result = await notificationsCollection.deleteOne({ id: id });
+    
+    if (result.deletedCount === 0) {
       return res.status(404).json({
         success: false,
         error: 'Notification not found'
       });
     }
-    
-    notifications.splice(notificationIndex, 1);
-    
+
     res.json({
       success: true,
       message: 'Notification deleted successfully'
     });
-    
+
   } catch (error) {
     console.error('Error deleting notification:', error);
     res.status(500).json({
@@ -227,9 +272,10 @@ router.delete('/:id', async (req, res) => {
   }
 });
 
-// POST /api/notifications - Create new notification (for testing or admin use)
+// POST /api/notifications - Create new notification
 router.post('/', async (req, res) => {
   try {
+    await initializeDB();
     const { type, title, message, priority = 'medium', data = {} } = req.body;
     
     if (!type || !title || !message) {
@@ -238,26 +284,28 @@ router.post('/', async (req, res) => {
         error: 'Missing required fields: type, title, message'
       });
     }
-    
-    const newNotification = {
+
+    const notification = {
       id: uuidv4(),
       type,
       title,
       message,
+      priority,
+      data,
       timestamp: new Date(),
       unread: true,
-      priority,
-      data
+      createdAt: new Date()
     };
-    
-    notifications.unshift(newNotification); // Add to beginning
-    
+
+    const notificationsCollection = db.collection('notifications');
+    await notificationsCollection.insertOne(notification);
+
     res.status(201).json({
       success: true,
       message: 'Notification created successfully',
-      data: newNotification
+      data: notification
     });
-    
+
   } catch (error) {
     console.error('Error creating notification:', error);
     res.status(500).json({
@@ -271,29 +319,32 @@ router.post('/', async (req, res) => {
 // GET /api/notifications/stats - Get notification statistics
 router.get('/stats', async (req, res) => {
   try {
-    const total = notifications.length;
-    const unread = notifications.filter(n => n.unread).length;
-    const byType = notifications.reduce((acc, n) => {
-      acc[n.type] = (acc[n.type] || 0) + 1;
-      return acc;
-    }, {});
-    const byPriority = notifications.reduce((acc, n) => {
-      acc[n.priority] = (acc[n.priority] || 0) + 1;
-      return acc;
-    }, {});
+    await initializeDB();
+    const notificationsCollection = db.collection('notifications');
     
+    const [total, unread, byType] = await Promise.all([
+      notificationsCollection.countDocuments(),
+      notificationsCollection.countDocuments({ unread: true }),
+      notificationsCollection.aggregate([
+        { $group: { _id: '$type', count: { $sum: 1 } } }
+      ]).toArray()
+    ]);
+
+    const typeStats = {};
+    byType.forEach(stat => {
+      typeStats[stat._id] = stat.count;
+    });
+
     res.json({
       success: true,
       data: {
         total,
         unread,
-        read: total - unread,
-        byType,
-        byPriority,
+        byType: typeStats,
         lastUpdated: new Date().toISOString()
       }
     });
-    
+
   } catch (error) {
     console.error('Error fetching notification stats:', error);
     res.status(500).json({

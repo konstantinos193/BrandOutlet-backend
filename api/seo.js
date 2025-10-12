@@ -3,31 +3,16 @@ const Joi = require('joi');
 const { v4: uuidv4 } = require('uuid');
 const { getTrackingData } = require('../utils/geolocation');
 const seoService = require('../services/seoService');
+const { connectDB } = require('../config/database');
 const router = express.Router();
 
-// In-memory storage for SEO tracking (replace with database in production)
-let seoMetrics = [];
-let seoAnalytics = {
-  totalMetrics: 0,
-  coreWebVitals: {
-    LCP: { values: [], average: 0, good: 0, needsImprovement: 0, poor: 0 },
-    FID: { values: [], average: 0, good: 0, needsImprovement: 0, poor: 0 },
-    CLS: { values: [], average: 0, good: 0, needsImprovement: 0, poor: 0 },
-    FCP: { values: [], average: 0, good: 0, needsImprovement: 0, poor: 0 },
-    TTFB: { values: [], average: 0, good: 0, needsImprovement: 0, poor: 0 }
-  },
-  pagePerformance: {
-    loadTimes: [],
-    imageLoadTimes: [],
-    averageLoadTime: 0
-  },
-  seoEvents: {
-    internalLinkClicks: 0,
-    searchQueries: [],
-    pageViews: 0,
-    bounceRate: 0
-  },
-  lastUpdated: new Date()
+let db = null;
+
+// Initialize database connection
+const initializeDB = async () => {
+  if (!db) {
+    db = await connectDB();
+  }
 };
 
 // Validation schema for SEO metrics
@@ -88,11 +73,13 @@ router.post('/metrics', async (req, res) => {
       device: trackingData.device
     };
 
-    // Store the metric
-    seoMetrics.push(seoMetricData);
+    // Store the metric in MongoDB
+    await initializeDB();
+    const seoCollection = db.collection('seoMetrics');
+    await seoCollection.insertOne(seoMetricData);
 
-    // Update analytics
-    updateSEOAnalytics(seoMetricData);
+    // Update analytics (now calculated from database)
+    await updateSEOAnalytics(seoMetricData);
 
     console.log('✅ SEO metric tracked successfully:', seoMetricData.id);
 
@@ -331,48 +318,11 @@ router.get('/health', (req, res) => {
 });
 
 // Helper function to update SEO analytics
-function updateSEOAnalytics(metricData) {
-  seoAnalytics.totalMetrics++;
-  
-  if (metricData.metricType === 'core-web-vitals') {
-    const metricName = metricData.metricName;
-    const value = metricData.value;
-    
-    if (seoAnalytics.coreWebVitals[metricName]) {
-      seoAnalytics.coreWebVitals[metricName].values.push(value);
-      
-      // Categorize the metric
-      const category = categorizeWebVital(metricName, value);
-      seoAnalytics.coreWebVitals[metricName][category]++;
-      
-      // Update average
-      const values = seoAnalytics.coreWebVitals[metricName].values;
-      seoAnalytics.coreWebVitals[metricName].average = 
-        values.reduce((sum, val) => sum + val, 0) / values.length;
-    }
-  } else if (metricData.metricType === 'page-performance') {
-    if (metricData.metricName === 'page_load_time') {
-      seoAnalytics.pagePerformance.loadTimes.push(metricData.value);
-      const loadTimes = seoAnalytics.pagePerformance.loadTimes;
-      seoAnalytics.pagePerformance.averageLoadTime = 
-        loadTimes.reduce((sum, time) => sum + time, 0) / loadTimes.length;
-    } else if (metricData.metricName === 'image_load') {
-      seoAnalytics.pagePerformance.imageLoadTimes.push(metricData.value);
-    }
-  } else if (metricData.metricType === 'seo-event') {
-    if (metricData.metricName === 'internal_link_click') {
-      seoAnalytics.seoEvents.internalLinkClicks++;
-    } else if (metricData.metricName === 'search') {
-      seoAnalytics.seoEvents.searchQueries.push({
-        query: metricData.additionalData?.search_term || 'unknown',
-        timestamp: metricData.timestamp
-      });
-    } else if (metricData.metricName === 'page_view') {
-      seoAnalytics.seoEvents.pageViews++;
-    }
-  }
-
-  seoAnalytics.lastUpdated = new Date();
+async function updateSEOAnalytics(metricData) {
+  // For now, we'll calculate analytics on-demand from the database
+  // This is more efficient than updating in-memory objects
+  // The analytics will be calculated when requested via the /analytics endpoint
+  console.log('SEO metric added to database, analytics will be calculated on-demand');
 }
 
 // Helper function to categorize web vitals

@@ -1,9 +1,9 @@
 const { connectDB } = require('../config/database');
+const cacheService = require('./cacheService');
 
 class CartService {
   constructor() {
     this.db = null;
-    this.cache = new Map();
     this.cacheTimeout = 10 * 60 * 1000; // 10 minutes
   }
 
@@ -13,22 +13,9 @@ class CartService {
     }
   }
 
-  // Get cached data or generate new data
+  // Get cached data or generate new data using Redis
   async getCachedData(key, generator, ttl = this.cacheTimeout) {
-    const cached = this.cache.get(key);
-    const now = Date.now();
-    
-    if (cached && (now - cached.timestamp) < ttl) {
-      return cached.data;
-    }
-    
-    const data = await generator();
-    this.cache.set(key, {
-      data,
-      timestamp: now
-    });
-    
-    return data;
+    return await cacheService.cacheWithTTL(key, generator, ttl);
   }
 
   // Get cart for a user
@@ -37,20 +24,50 @@ class CartService {
     
     const cacheKey = `cart-${userId}`;
     return this.getCachedData(cacheKey, async () => {
-      // In a real implementation, this would query MongoDB
-      // For now, return empty cart
-      return {
-        id: `cart-${userId}`,
-        userId,
-        items: [],
-        subtotal: 0,
-        tax: 0,
-        shipping: 0,
-        total: 0,
-        itemCount: 0,
-        createdAt: new Date().toISOString(),
-        updatedAt: new Date().toISOString()
-      };
+      const cartsCollection = this.db.collection('carts');
+      
+      try {
+        let cart = await cartsCollection.findOne({ userId });
+        
+        if (!cart) {
+          // Create new cart if it doesn't exist
+          cart = {
+            id: `cart-${userId}`,
+            userId,
+            items: [],
+            subtotal: 0,
+            tax: 0,
+            shipping: 0,
+            total: 0,
+            totalValue: 0,
+            itemCount: 0,
+            status: 'active',
+            createdAt: new Date(),
+            updatedAt: new Date()
+          };
+          
+          await cartsCollection.insertOne(cart);
+        }
+        
+        return cart;
+      } catch (error) {
+        console.error('Error fetching cart:', error);
+        // Return empty cart as fallback
+        return {
+          id: `cart-${userId}`,
+          userId,
+          items: [],
+          subtotal: 0,
+          tax: 0,
+          shipping: 0,
+          total: 0,
+          totalValue: 0,
+          itemCount: 0,
+          status: 'active',
+          createdAt: new Date(),
+          updatedAt: new Date()
+        };
+      }
     });
   }
 
@@ -97,7 +114,22 @@ class CartService {
     // Recalculate totals
     this.calculateCartTotals(cart);
     
-    // In a real implementation, this would save to MongoDB
+    // Save to database
+    const cartsCollection = this.db.collection('carts');
+    await cartsCollection.updateOne(
+      { userId },
+      { 
+        $set: { 
+          ...cart,
+          updatedAt: new Date()
+        }
+      },
+      { upsert: true }
+    );
+    
+    // Clear cache for this user
+    await cacheService.invalidate(`cart-${userId}`);
+    
     console.log(`Added ${quantity} of product ${productId} to cart for user ${userId}`);
     
     return cart;
@@ -120,7 +152,22 @@ class CartService {
     // Recalculate totals
     this.calculateCartTotals(cart);
     
-    // In a real implementation, this would save to MongoDB
+    // Save to database
+    const cartsCollection = this.db.collection('carts');
+    await cartsCollection.updateOne(
+      { userId },
+      { 
+        $set: { 
+          ...cart,
+          updatedAt: new Date()
+        }
+      },
+      { upsert: true }
+    );
+    
+    // Clear cache for this user
+    await cacheService.invalidate(`cart-${userId}`);
+    
     console.log(`Removed item ${itemId} from cart for user ${userId}`);
     
     return cart;
@@ -157,7 +204,22 @@ class CartService {
     // Recalculate totals
     this.calculateCartTotals(cart);
     
-    // In a real implementation, this would save to MongoDB
+    // Save to database
+    const cartsCollection = this.db.collection('carts');
+    await cartsCollection.updateOne(
+      { userId },
+      { 
+        $set: { 
+          ...cart,
+          updatedAt: new Date()
+        }
+      },
+      { upsert: true }
+    );
+    
+    // Clear cache for this user
+    await cacheService.invalidate(`cart-${userId}`);
+    
     console.log(`Updated quantity for item ${itemId} to ${quantity} for user ${userId}`);
     
     return cart;
@@ -169,9 +231,25 @@ class CartService {
     
     const cart = await this.getCart(userId);
     cart.items = [];
+    cart.status = 'abandoned';
     this.calculateCartTotals(cart);
     
-    // In a real implementation, this would save to MongoDB
+    // Save to database
+    const cartsCollection = this.db.collection('carts');
+    await cartsCollection.updateOne(
+      { userId },
+      { 
+        $set: { 
+          ...cart,
+          updatedAt: new Date()
+        }
+      },
+      { upsert: true }
+    );
+    
+    // Clear cache for this user
+    await cacheService.invalidate(`cart-${userId}`);
+    
     console.log(`Cleared cart for user ${userId}`);
     
     return cart;
@@ -190,8 +268,9 @@ class CartService {
     
     // Calculate total
     cart.total = cart.subtotal + cart.tax + cart.shipping;
+    cart.totalValue = cart.total; // For analytics compatibility
     
-    cart.updatedAt = new Date().toISOString();
+    cart.updatedAt = new Date();
   }
 
   // Get product details

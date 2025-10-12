@@ -2,36 +2,44 @@ const express = require('express');
 const Joi = require('joi');
 const { v4: uuidv4 } = require('uuid');
 const { getTrackingData } = require('../utils/geolocation');
+const { connectDB } = require('../config/database');
 const router = express.Router();
 
-// Health check endpoint for page tracking
-router.get('/health', (req, res) => {
-  res.json({
-    success: true,
-    message: 'Page tracking service is healthy',
-    timestamp: new Date().toISOString(),
-    stats: {
-      totalViews: pageViews.length,
-      uniqueVisitors: pageAnalytics.uniqueVisitors.size,
-      lastUpdated: pageAnalytics.lastUpdated
-    }
-  });
-});
+let db = null;
 
-// In-memory storage for page tracking (replace with database in production)
-let pageViews = [];
-let pageAnalytics = {
-  totalViews: 0,
-  uniqueVisitors: new Set(),
-  pageViews: {},
-  popularPages: [],
-  lastUpdated: new Date(),
-  hourlyStats: {},
-  dailyStats: {},
-  countryStats: {},
-  deviceStats: {},
-  browserStats: {}
+// Initialize database connection
+const initializeDB = async () => {
+  if (!db) {
+    db = await connectDB();
+  }
 };
+
+// Health check endpoint for page tracking
+router.get('/health', async (req, res) => {
+  try {
+    await initializeDB();
+    const pageViewsCollection = db.collection('pageViews');
+    const totalViews = await pageViewsCollection.countDocuments();
+    const uniqueVisitors = await pageViewsCollection.distinct('sessionId').then(sessions => sessions.length);
+    
+    res.json({
+      success: true,
+      message: 'Page tracking service is healthy',
+      timestamp: new Date().toISOString(),
+      stats: {
+        totalViews,
+        uniqueVisitors,
+        lastUpdated: new Date()
+      }
+    });
+  } catch (error) {
+    res.status(500).json({
+      success: false,
+      message: 'Page tracking service error',
+      error: error.message
+    });
+  }
+});
 
 // Validation schema for page tracking
 const pageViewSchema = Joi.object({
@@ -105,16 +113,13 @@ router.post('/view', async (req, res) => {
       acceptLanguage: trackingData.acceptLanguage
     };
 
-    // Store the page view
-    pageViews.push(pageViewData);
+    // Store the page view in MongoDB
+    await initializeDB();
+    const pageViewsCollection = db.collection('pageViews');
+    await pageViewsCollection.insertOne(pageViewData);
 
-    // Update analytics data
-    try {
-      updatePageAnalytics(pageViewData);
-    } catch (analyticsError) {
-      console.error('Error updating analytics:', analyticsError);
-      // Continue without failing the request
-    }
+    // Analytics will be calculated on-demand from database
+    console.log('Page view stored in database, analytics calculated on-demand');
 
     console.log('✅ Page view tracked successfully:', pageViewData.id);
 
@@ -152,14 +157,27 @@ router.post('/exit', async (req, res) => {
     // If no sessionId provided, create a default one
     const trackingSessionId = sessionId || 'anonymous-' + Date.now();
 
-    // Find the last page view for this session and update it
-    const lastView = pageViews
-      .filter(view => view.sessionId === trackingSessionId)
-      .sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp))[0];
+    // Find the last page view for this session and update it in MongoDB
+    await initializeDB();
+    const pageViewsCollection = db.collection('pageViews');
+    
+    const lastView = await pageViewsCollection
+      .findOne(
+        { sessionId: trackingSessionId },
+        { sort: { timestamp: -1 } }
+      );
 
     if (lastView) {
-      lastView.exitPage = true;
-      lastView.duration = duration || 0;
+      await pageViewsCollection.updateOne(
+        { _id: lastView._id },
+        { 
+          $set: { 
+            exitPage: true,
+            duration: duration || 0,
+            updatedAt: new Date()
+          }
+        }
+      );
     } else {
       // If no previous view found, create a basic exit record
       const exitView = {
@@ -171,9 +189,10 @@ router.post('/exit', async (req, res) => {
         exitPage: true,
         duration: duration || 0,
         ipAddress: req.ip || '127.0.0.1',
-        userAgent: req.get('User-Agent') || 'Unknown'
+        userAgent: req.get('User-Agent') || 'Unknown',
+        createdAt: new Date()
       };
-      pageViews.push(exitView);
+      await pageViewsCollection.insertOne(exitView);
     }
 
     res.json({

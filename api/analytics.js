@@ -1,45 +1,70 @@
 const express = require('express');
+const { connectDB } = require('../config/database');
 const router = express.Router();
 
-// Mock analytics data (replace with database queries in production)
-let analyticsData = {
-  genderDistribution: { male: 0, female: 0 },
-  clothingSizeDistribution: {},
-  shoeSizeDistribution: {},
-  completionRate: 0,
-  totalUsers: 0,
-  lastUpdated: new Date(),
-  trends: {
-    popularSizes: [],
-    genderTrends: [],
-    completionTrends: []
-  },
-  marketingInsights: {
-    targetAudience: '',
-    recommendedSizes: [],
-    conversionOpportunities: []
+let db = null;
+
+// Initialize database connection
+const initializeDB = async () => {
+  if (!db) {
+    db = await connectDB();
   }
 };
 
 // GET /api/analytics/overview - Get analytics overview
 router.get('/overview', async (req, res) => {
   try {
+    await initializeDB();
     const { timeframe = '7d' } = req.query;
     
-    // Calculate insights based on data
-    const insights = calculateMarketingInsights();
+    // Get data from userPreferences collection
+    const preferencesCollection = db.collection('userPreferences');
+    
+    const [totalUsers, genderStats, clothingSizeStats, shoeSizeStats] = await Promise.all([
+      preferencesCollection.countDocuments(),
+      preferencesCollection.aggregate([
+        { $group: { _id: '$gender', count: { $sum: 1 } } }
+      ]).toArray(),
+      preferencesCollection.aggregate([
+        { $group: { _id: '$clothingSize', count: { $sum: 1 } } }
+      ]).toArray(),
+      preferencesCollection.aggregate([
+        { $group: { _id: '$shoeSize', count: { $sum: 1 } } }
+      ]).toArray()
+    ]);
+    
+    // Process gender distribution
+    const genderDistribution = { male: 0, female: 0 };
+    genderStats.forEach(stat => {
+      genderDistribution[stat._id] = stat.count;
+    });
+    
+    // Process clothing size distribution
+    const clothingSizeDistribution = {};
+    clothingSizeStats.forEach(stat => {
+      clothingSizeDistribution[stat._id] = stat.count;
+    });
+    
+    // Process shoe size distribution
+    const shoeSizeDistribution = {};
+    shoeSizeStats.forEach(stat => {
+      shoeSizeDistribution[stat._id] = stat.count;
+    });
+    
+    // Calculate insights
+    const insights = calculateMarketingInsights(genderDistribution, clothingSizeDistribution, shoeSizeDistribution);
     
     res.json({
       success: true,
       data: {
         overview: {
-          totalUsers: analyticsData.totalUsers,
-          completionRate: analyticsData.completionRate,
-          lastUpdated: analyticsData.lastUpdated
+          totalUsers: totalUsers,
+          completionRate: 100, // All saved preferences are complete
+          lastUpdated: new Date()
         },
-        genderDistribution: analyticsData.genderDistribution,
-        clothingSizeDistribution: analyticsData.clothingSizeDistribution,
-        shoeSizeDistribution: analyticsData.shoeSizeDistribution,
+        genderDistribution: genderDistribution,
+        clothingSizeDistribution: clothingSizeDistribution,
+        shoeSizeDistribution: shoeSizeDistribution,
         insights: insights
       }
     });
@@ -53,239 +78,186 @@ router.get('/overview', async (req, res) => {
   }
 });
 
-// GET /api/analytics/marketing-insights - Get marketing insights
-router.get('/marketing-insights', async (req, res) => {
-  try {
-    const insights = calculateMarketingInsights();
-    
-    res.json({
-      success: true,
-      data: {
-        targetAudience: insights.targetAudience,
-        recommendedSizes: insights.recommendedSizes,
-        conversionOpportunities: insights.conversionOpportunities,
-        sizeRecommendations: insights.sizeRecommendations,
-        genderInsights: insights.genderInsights,
-        trends: insights.trends
-      }
-    });
-
-  } catch (error) {
-    console.error('Error fetching marketing insights:', error);
-    res.status(500).json({
-      error: 'Failed to fetch marketing insights',
-      message: error.message
-    });
-  }
-});
-
-// GET /api/analytics/size-recommendations - Get size recommendations for inventory
-router.get('/size-recommendations', async (req, res) => {
-  try {
-    const { gender, category } = req.query;
-    
-    const recommendations = generateSizeRecommendations(gender, category);
-    
-    res.json({
-      success: true,
-      data: {
-        gender: gender || 'all',
-        category: category || 'all',
-        recommendations: recommendations,
-        confidence: calculateConfidenceScore(recommendations)
-      }
-    });
-
-  } catch (error) {
-    console.error('Error generating size recommendations:', error);
-    res.status(500).json({
-      error: 'Failed to generate size recommendations',
-      message: error.message
-    });
-  }
-});
-
-// GET /api/analytics/trends - Get trend analysis
+// GET /api/analytics/trends - Get analytics trends
 router.get('/trends', async (req, res) => {
   try {
-    const { period = '30d' } = req.query;
+    await initializeDB();
+    const { timeframe = '7d' } = req.query;
     
-    const trends = analyzeTrends(period);
+    // Get trends data from userPreferences collection
+    const preferencesCollection = db.collection('userPreferences');
+    
+    // Get recent preferences for trend analysis
+    const recentPreferences = await preferencesCollection
+      .find({})
+      .sort({ timestamp: -1 })
+      .limit(100)
+      .toArray();
+    
+    const trends = calculateTrends(recentPreferences);
     
     res.json({
       success: true,
       data: {
-        period: period,
         trends: trends,
-        recommendations: generateTrendRecommendations(trends)
+        timeframe: timeframe,
+        lastUpdated: new Date()
       }
     });
 
   } catch (error) {
-    console.error('Error analyzing trends:', error);
+    console.error('Error fetching analytics trends:', error);
     res.status(500).json({
-      error: 'Failed to analyze trends',
+      error: 'Failed to fetch analytics trends',
+      message: error.message
+    });
+  }
+});
+
+// GET /api/analytics/insights - Get marketing insights
+router.get('/insights', async (req, res) => {
+  try {
+    await initializeDB();
+    
+    // Get data from userPreferences collection
+    const preferencesCollection = db.collection('userPreferences');
+    
+    const [genderStats, clothingSizeStats, shoeSizeStats] = await Promise.all([
+      preferencesCollection.aggregate([
+        { $group: { _id: '$gender', count: { $sum: 1 } } }
+      ]).toArray(),
+      preferencesCollection.aggregate([
+        { $group: { _id: '$clothingSize', count: { $sum: 1 } } }
+      ]).toArray(),
+      preferencesCollection.aggregate([
+        { $group: { _id: '$shoeSize', count: { $sum: 1 } } }
+      ]).toArray()
+    ]);
+    
+    // Process distributions
+    const genderDistribution = { male: 0, female: 0 };
+    genderStats.forEach(stat => {
+      genderDistribution[stat._id] = stat.count;
+    });
+    
+    const clothingSizeDistribution = {};
+    clothingSizeStats.forEach(stat => {
+      clothingSizeDistribution[stat._id] = stat.count;
+    });
+    
+    const shoeSizeDistribution = {};
+    shoeSizeStats.forEach(stat => {
+      shoeSizeDistribution[stat._id] = stat.count;
+    });
+    
+    const insights = calculateMarketingInsights(genderDistribution, clothingSizeDistribution, shoeSizeDistribution);
+    
+    res.json({
+      success: true,
+      data: {
+        insights: insights,
+        lastUpdated: new Date()
+      }
+    });
+
+  } catch (error) {
+    console.error('Error fetching analytics insights:', error);
+    res.status(500).json({
+      error: 'Failed to fetch analytics insights',
       message: error.message
     });
   }
 });
 
 // Helper function to calculate marketing insights
-function calculateMarketingInsights() {
-  const totalUsers = analyticsData.totalUsers;
-  const maleCount = analyticsData.genderDistribution.male;
-  const femaleCount = analyticsData.genderDistribution.female;
+function calculateMarketingInsights(genderDistribution, clothingSizeDistribution, shoeSizeDistribution) {
+  const totalUsers = Object.values(genderDistribution).reduce((sum, count) => sum + count, 0);
+  
+  if (totalUsers === 0) {
+    return {
+      targetAudience: 'No data available',
+      recommendedSizes: [],
+      conversionOpportunities: []
+    };
+  }
   
   // Determine target audience
-  let targetAudience = 'Mixed';
-  if (maleCount > femaleCount * 1.5) {
-    targetAudience = 'Male-dominated';
-  } else if (femaleCount > maleCount * 1.5) {
-    targetAudience = 'Female-dominated';
-  }
-
-  // Get most popular sizes
-  const popularClothingSizes = Object.entries(analyticsData.clothingSizeDistribution)
+  const maleCount = genderDistribution.male || 0;
+  const femaleCount = genderDistribution.female || 0;
+  const targetAudience = maleCount > femaleCount ? 'Male' : femaleCount > maleCount ? 'Female' : 'Mixed';
+  
+  // Find most popular sizes
+  const popularClothingSizes = Object.entries(clothingSizeDistribution)
     .sort(([,a], [,b]) => b - a)
     .slice(0, 3)
-    .map(([size, count]) => ({ size, count, percentage: (count / totalUsers * 100).toFixed(1) }));
-
-  const popularShoeSizes = Object.entries(analyticsData.shoeSizeDistribution)
+    .map(([size, count]) => ({ size, count }));
+  
+  const popularShoeSizes = Object.entries(shoeSizeDistribution)
     .sort(([,a], [,b]) => b - a)
     .slice(0, 3)
-    .map(([size, count]) => ({ size, count, percentage: (count / totalUsers * 100).toFixed(1) }));
-
+    .map(([size, count]) => ({ size, count }));
+  
   // Generate conversion opportunities
   const conversionOpportunities = [];
-  if (analyticsData.completionRate < 80) {
-    conversionOpportunities.push({
-      type: 'completion_rate',
-      message: 'Low completion rate detected. Consider simplifying the modal flow.',
-      priority: 'high'
-    });
+  
+  if (maleCount > femaleCount) {
+    conversionOpportunities.push('Focus marketing efforts on male demographic');
+  } else if (femaleCount > maleCount) {
+    conversionOpportunities.push('Focus marketing efforts on female demographic');
   }
-
+  
   if (popularClothingSizes.length > 0) {
-    conversionOpportunities.push({
-      type: 'inventory_optimization',
-      message: `Focus inventory on sizes: ${popularClothingSizes.map(s => s.size).join(', ')}`,
-      priority: 'medium'
-    });
+    conversionOpportunities.push(`Stock more ${popularClothingSizes[0].size} clothing sizes`);
   }
-
+  
+  if (popularShoeSizes.length > 0) {
+    conversionOpportunities.push(`Stock more ${popularShoeSizes[0].size} shoe sizes`);
+  }
+  
   return {
-    targetAudience,
+    targetAudience: targetAudience,
     recommendedSizes: {
       clothing: popularClothingSizes,
       shoes: popularShoeSizes
     },
-    conversionOpportunities,
-    sizeRecommendations: generateInventoryRecommendations(),
-    genderInsights: {
-      malePercentage: ((maleCount / totalUsers) * 100).toFixed(1),
-      femalePercentage: ((femaleCount / totalUsers) * 100).toFixed(1)
-    },
-    trends: {
-      completionRate: analyticsData.completionRate,
-      totalUsers: totalUsers
-    }
+    conversionOpportunities: conversionOpportunities
   };
 }
 
-// Helper function to generate size recommendations
-function generateSizeRecommendations(gender, category) {
-  let data = analyticsData;
-  
-  if (gender) {
-    // Filter data by gender (in real implementation, query database)
-    data = filterDataByGender(gender);
-  }
-
-  const recommendations = {
-    clothing: Object.entries(data.clothingSizeDistribution)
-      .sort(([,a], [,b]) => b - a)
-      .slice(0, 5)
-      .map(([size, count]) => ({ size, count })),
-    shoes: Object.entries(data.shoeSizeDistribution)
-      .sort(([,a], [,b]) => b - a)
-      .slice(0, 5)
-      .map(([size, count]) => ({ size, count }))
-  };
-
-  return recommendations;
-}
-
-// Helper function to analyze trends
-function analyzeTrends(period) {
-  // Mock trend analysis (in production, analyze historical data)
-  return {
-    genderTrend: {
-      male: '+12%',
-      female: '+8%'
-    },
-    sizeTrend: {
-      clothing: 'M and L sizes trending up',
-      shoes: 'Size 9-10 most popular'
-    },
-    completionTrend: {
-      rate: analyticsData.completionRate + '%',
-      change: '+5%'
-    }
-  };
-}
-
-// Helper function to generate trend recommendations
-function generateTrendRecommendations(trends) {
-  const recommendations = [];
-  
-  if (trends.genderTrend.male.includes('+')) {
-    recommendations.push('Consider increasing male-targeted marketing');
+// Helper function to calculate trends
+function calculateTrends(recentPreferences) {
+  if (recentPreferences.length === 0) {
+    return {
+      popularSizes: [],
+      genderTrends: [],
+      completionTrends: []
+    };
   }
   
-  if (trends.completionTrend.change.includes('+')) {
-    recommendations.push('Modal completion rate is improving - keep current strategy');
-  }
+  // Calculate popular sizes
+  const clothingSizeCounts = {};
+  const shoeSizeCounts = {};
+  const genderCounts = { male: 0, female: 0 };
   
-  return recommendations;
-}
-
-// Helper function to generate inventory recommendations
-function generateInventoryRecommendations() {
-  const clothingSizes = Object.entries(analyticsData.clothingSizeDistribution)
+  recentPreferences.forEach(pref => {
+    clothingSizeCounts[pref.clothingSize] = (clothingSizeCounts[pref.clothingSize] || 0) + 1;
+    shoeSizeCounts[pref.shoeSize] = (shoeSizeCounts[pref.shoeSize] || 0) + 1;
+    genderCounts[pref.gender] = (genderCounts[pref.gender] || 0) + 1;
+  });
+  
+  const popularSizes = Object.entries(clothingSizeCounts)
     .sort(([,a], [,b]) => b - a)
-    .slice(0, 5);
-    
-  const shoeSizes = Object.entries(analyticsData.shoeSizeDistribution)
-    .sort(([,a], [,b]) => b - a)
-    .slice(0, 5);
-
-  return {
-    clothing: {
-      highPriority: clothingSizes.slice(0, 3).map(([size]) => size),
-      mediumPriority: clothingSizes.slice(3, 5).map(([size]) => size)
-    },
-    shoes: {
-      highPriority: shoeSizes.slice(0, 3).map(([size]) => size),
-      mediumPriority: shoeSizes.slice(3, 5).map(([size]) => size)
-    }
-  };
-}
-
-// Helper function to calculate confidence score
-function calculateConfidenceScore(recommendations) {
-  const totalDataPoints = Object.values(recommendations).reduce((sum, category) => 
-    sum + Object.values(category).reduce((catSum, sizes) => 
-      catSum + sizes.reduce((sizeSum, item) => sizeSum + item.count, 0), 0), 0);
+    .slice(0, 5)
+    .map(([size, count]) => ({ size, count }));
   
-  if (totalDataPoints > 100) return 'High';
-  if (totalDataPoints > 50) return 'Medium';
-  return 'Low';
-}
-
-// Helper function to filter data by gender (mock implementation)
-function filterDataByGender(gender) {
-  // In real implementation, this would query the database
-  return analyticsData;
+  const genderTrends = Object.entries(genderCounts)
+    .map(([gender, count]) => ({ gender, count }));
+  
+  return {
+    popularSizes: popularSizes,
+    genderTrends: genderTrends,
+    completionTrends: [{ period: 'Current', rate: 100 }] // All saved preferences are complete
+  };
 }
 
 module.exports = router;

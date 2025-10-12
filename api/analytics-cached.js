@@ -212,9 +212,16 @@ router.get('/cache-stats', async (req, res) => {
 });
 
 // Analytics tracking endpoints
-// In-memory storage for analytics events (in production, use database)
-const analyticsEvents = [];
-const maxEvents = 10000; // Keep last 10k events
+const { connectDB } = require('../config/database');
+
+let db = null;
+
+// Initialize database connection
+const initializeDB = async () => {
+  if (!db) {
+    db = await connectDB();
+  }
+};
 
 // POST /api/analytics/track - Track analytics events
 router.post('/track', async (req, res) => {
@@ -233,18 +240,16 @@ router.post('/track', async (req, res) => {
     const trackedEvent = {
       ...event,
       id: Date.now() + Math.random(),
-      receivedAt: new Date().toISOString(),
+      receivedAt: new Date(),
       userAgent: req.headers['user-agent'],
-      ip: req.ip || req.connection.remoteAddress
+      ip: req.ip || req.connection.remoteAddress,
+      createdAt: new Date()
     };
 
-    // Store event
-    analyticsEvents.push(trackedEvent);
-    
-    // Keep only last maxEvents
-    if (analyticsEvents.length > maxEvents) {
-      analyticsEvents.splice(0, analyticsEvents.length - maxEvents);
-    }
+    // Store event in MongoDB
+    await initializeDB();
+    const analyticsCollection = db.collection('analyticsEvents');
+    await analyticsCollection.insertOne(trackedEvent);
 
     console.log(`📊 Analytics event tracked: ${event.eventName}`);
 
@@ -286,12 +291,15 @@ router.post('/performance', async (req, res) => {
       ip: req.ip || req.connection.remoteAddress
     };
 
-    // Store performance metrics
-    analyticsEvents.push({
+    // Store performance metrics in MongoDB
+    await initializeDB();
+    const analyticsCollection = db.collection('analyticsEvents');
+    await analyticsCollection.insertOne({
       eventName: 'performance_metrics',
       eventData: performanceEvent,
       timestamp: performanceEvent.timestamp,
-      receivedAt: performanceEvent.receivedAt
+      receivedAt: performanceEvent.receivedAt,
+      createdAt: new Date()
     });
 
     console.log(`📈 Performance metrics tracked for ${metrics.url}`);
@@ -333,12 +341,15 @@ router.post('/performance-alert', async (req, res) => {
       ip: req.ip || req.connection.remoteAddress
     };
 
-    // Store performance alert
-    analyticsEvents.push({
+    // Store performance alert in MongoDB
+    await initializeDB();
+    const analyticsCollection = db.collection('analyticsEvents');
+    await analyticsCollection.insertOne({
       eventName: 'performance_alert',
       eventData: alertEvent,
-      timestamp: alertEvent.timestamp || new Date().toISOString(),
-      receivedAt: alertEvent.receivedAt
+      timestamp: alertEvent.timestamp || new Date(),
+      receivedAt: alertEvent.receivedAt,
+      createdAt: new Date()
     });
 
     console.log(`⚠️ Performance alert tracked: ${alert.metric} = ${alert.value} (threshold: ${alert.threshold})`);

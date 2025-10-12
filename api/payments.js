@@ -1,12 +1,26 @@
 const express = require('express');
 const router = express.Router();
-const { getDB } = require('../config/database');
+const { connectDB } = require('../config/database');
+
+let db = null;
+
+// Initialize database connection
+const initializeDB = async () => {
+  if (!db) {
+    db = await connectDB();
+  }
+};
 
 // Helper function to get payment transactions
 const getPaymentTransactions = async () => {
   try {
-    // Mock data for now - replace with actual database queries
-    const mockPayments = [
+    await initializeDB();
+    const paymentsCollection = db.collection('payments');
+    
+    // Check if payments exist, if not create sample data
+    const existingCount = await paymentsCollection.countDocuments();
+    if (existingCount === 0) {
+      const samplePayments = [
       {
         id: '1',
         orderId: '1',
@@ -67,9 +81,14 @@ const getPaymentTransactions = async () => {
         fees: 7.50,
         netAmount: 242.50
       }
-    ];
-
-    return mockPayments;
+      ];
+      
+      await paymentsCollection.insertMany(samplePayments);
+      console.log('✅ Sample payments initialized in database');
+    }
+    
+    // Return payments from database
+    return await paymentsCollection.find({}).sort({ processedAt: -1 }).toArray();
   } catch (error) {
     console.error('Error fetching payments:', error);
     throw error;

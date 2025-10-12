@@ -1,20 +1,19 @@
 const express = require('express');
 const Joi = require('joi');
 const { v4: uuidv4 } = require('uuid');
+const { connectDB } = require('../config/database');
 const router = express.Router();
 
 // Import size conversion logic
 const { convertSizeToEU } = require('./sizeConversion');
 
-// In-memory storage for demo (replace with database in production)
-let userPreferences = [];
-let analyticsData = {
-  genderDistribution: { male: 0, female: 0 },
-  clothingSizeDistribution: {},
-  shoeSizeDistribution: {},
-  completionRate: 0,
-  totalUsers: 0,
-  lastUpdated: new Date()
+let db = null;
+
+// Initialize database connection
+const initializeDB = async () => {
+  if (!db) {
+    db = await connectDB();
+  }
 };
 
 // Validation schemas
@@ -70,11 +69,13 @@ router.post('/', async (req, res) => {
       userAgent: req.get('User-Agent')
     };
 
-    // Store the preference
-    userPreferences.push(preferenceData);
+    // Store the preference in MongoDB
+    await initializeDB();
+    const preferencesCollection = db.collection('userPreferences');
+    await preferencesCollection.insertOne(preferenceData);
 
-    // Update analytics data
-    updateAnalyticsData(preferenceData);
+    // Analytics will be calculated on-demand from database
+    console.log('User preferences stored in database, analytics calculated on-demand');
 
     res.status(201).json({
       success: true,
@@ -140,6 +141,50 @@ router.get('/', async (req, res) => {
 // GET /api/user-preferences/analytics - Get analytics data
 router.get('/analytics', async (req, res) => {
   try {
+    await initializeDB();
+    const preferencesCollection = db.collection('userPreferences');
+    
+    // Calculate analytics from database
+    const [totalUsers, genderStats, clothingSizeStats, shoeSizeStats] = await Promise.all([
+      preferencesCollection.countDocuments(),
+      preferencesCollection.aggregate([
+        { $group: { _id: '$gender', count: { $sum: 1 } } }
+      ]).toArray(),
+      preferencesCollection.aggregate([
+        { $group: { _id: '$clothingSize', count: { $sum: 1 } } }
+      ]).toArray(),
+      preferencesCollection.aggregate([
+        { $group: { _id: '$shoeSize', count: { $sum: 1 } } }
+      ]).toArray()
+    ]);
+    
+    // Process gender distribution
+    const genderDistribution = { male: 0, female: 0 };
+    genderStats.forEach(stat => {
+      genderDistribution[stat._id] = stat.count;
+    });
+    
+    // Process clothing size distribution
+    const clothingSizeDistribution = {};
+    clothingSizeStats.forEach(stat => {
+      clothingSizeDistribution[stat._id] = stat.count;
+    });
+    
+    // Process shoe size distribution
+    const shoeSizeDistribution = {};
+    shoeSizeStats.forEach(stat => {
+      shoeSizeDistribution[stat._id] = stat.count;
+    });
+    
+    const analyticsData = {
+      genderDistribution,
+      clothingSizeDistribution,
+      shoeSizeDistribution,
+      completionRate: 100, // All saved preferences are complete
+      totalUsers,
+      lastUpdated: new Date()
+    };
+    
     res.json({
       success: true,
       data: analyticsData,

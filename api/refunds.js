@@ -1,12 +1,26 @@
 const express = require('express');
 const router = express.Router();
-const { getDB } = require('../config/database');
+const { connectDB } = require('../config/database');
+
+let db = null;
+
+// Initialize database connection
+const initializeDB = async () => {
+  if (!db) {
+    db = await connectDB();
+  }
+};
 
 // Helper function to get refund requests
 const getRefundRequests = async () => {
   try {
-    // Mock data for now - replace with actual database queries
-    const mockRefunds = [
+    await initializeDB();
+    const refundsCollection = db.collection('refunds');
+    
+    // Check if refunds exist, if not create sample data
+    const existingCount = await refundsCollection.countDocuments();
+    if (existingCount === 0) {
+      const sampleRefunds = [
       {
         id: '1',
         orderId: '1',
@@ -58,9 +72,14 @@ const getRefundRequests = async () => {
         requestedAt: new Date('2024-01-20T16:30:00Z'),
         notes: 'Customer claims product quality is not as expected'
       }
-    ];
-
-    return mockRefunds;
+      ];
+      
+      await refundsCollection.insertMany(sampleRefunds);
+      console.log('✅ Sample refunds initialized in database');
+    }
+    
+    // Return refunds from database
+    return await refundsCollection.find({}).sort({ requestedAt: -1 }).toArray();
   } catch (error) {
     console.error('Error fetching refunds:', error);
     throw error;
